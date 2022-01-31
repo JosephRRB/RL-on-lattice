@@ -27,7 +27,8 @@ class KagomeLatticeEnv:
             graph
         )
         nx.relabel_nodes(graph, self.coord_to_int, copy=False)
-        self.lattice = dgl.from_networkx(graph)
+        # gpu_name = tf.test.gpu_device_name()
+        self.lattice = dgl.from_networkx(graph).to("/device:GPU:0")
 
     @staticmethod
     def _create_edge_list(n_sq_cells):
@@ -137,12 +138,16 @@ class KagomeLatticeEnv:
         return delta_log_proba_of_state
 
     def reset(self):
-        spins = (
-            2 * np.random.randint(2, size=(self.lattice.num_nodes(), 1)) - 1
+        random_ints = tf.random.uniform(
+            shape=(self.lattice.num_nodes(), 1),
+            maxval=2,
+            dtype=tf.int32,
         )
-        self.lattice.ndata["spin"] = tf.convert_to_tensor(
-            spins, dtype=tf.float32
+        spins = tf.cast(
+            2 * random_ints - 1,
+            dtype=tf.float32,
         )
+        self.lattice.ndata["spin"] = spins
         return copy.deepcopy(self.lattice)
 
     def step(self, action_index):
