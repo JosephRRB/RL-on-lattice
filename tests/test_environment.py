@@ -1,9 +1,10 @@
 import numpy as np
 
+import tensorflow as tf
 from core.environment import (
     KagomeLatticeEnv,
-    _create_edge_list,
     _create_coord_int_mappings,
+    _create_edge_list
 )
 
 
@@ -84,7 +85,7 @@ def test_lattice_has_correct_connectivity():
 
     expected = np.matrix(
         [
-            #0  1  2  3  4  5  6  7  8  9  10 11
+            # 0  1  2  3  4  5  6  7  8  9  10 11
             [0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0],  # 0
             [1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0],  # 1
             [0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1],  # 2
@@ -101,3 +102,27 @@ def test_lattice_has_correct_connectivity():
     )
 
     np.testing.assert_array_equal(adjacency_of_lattice, expected)
+
+
+def test_environment_gives_correct_spins():
+    environment = KagomeLatticeEnv(n_sq_cells=2)
+    observation = environment.reset()
+
+    assert all(np.unique(observation) == [-1, 1])
+
+
+def test_environment_resets():
+    environment = KagomeLatticeEnv(n_sq_cells=20)
+    observation_1 = environment.reset()
+    observation_2 = environment.reset()
+
+    assert any(observation_1 != observation_2)
+
+
+def test_environment_correctly_tracks_lattice_spins_between_resets():
+    environment = KagomeLatticeEnv(n_sq_cells=20)
+    observation_1 = environment.reset()
+    assert all(observation_1 == environment.spin_state)
+
+    observation_2 = environment.reset()
+    assert all(observation_2 == environment.spin_state)
