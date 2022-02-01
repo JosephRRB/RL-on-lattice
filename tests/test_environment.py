@@ -126,3 +126,10 @@ def test_environment_correctly_tracks_lattice_spins_between_resets():
 
     observation_2 = environment.reset()
     assert all(observation_2 == environment.spin_state)
+
+
+def test_environment_correctly_flips_spins_based_on_agent_action():
+    environment = KagomeLatticeEnv(n_sq_cells=2)
+    old_observation = environment.reset()
+
+    # agent_action_index =
