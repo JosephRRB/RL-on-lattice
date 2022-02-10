@@ -17,6 +17,6 @@ class GraphPolicyNetwork(Model):
                                 aggregator_type='mean')
 
     def call(self, inputs, training=None, mask=None):
-        hidden = self.layer_1(self.graph, inputs, training=training)
-        output_logits = self.layer_2(self.graph, hidden, training=training)
+        hidden = self.layer_1(self.graph, inputs)
+        output_logits = self.layer_2(self.graph, hidden)
         return output_logits

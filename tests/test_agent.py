@@ -62,4 +62,13 @@ def test_rl_agent_has_correct_lattice_adjacency():
     )
 
 
-# test trainable
+def test_rl_agent_policy_is_not_trainable_by_default():
+    environment = KagomeLatticeEnv(n_sq_cells=2)
+    lattice = environment.lattice
+    observation = environment.reset()
+
+    agent = RLAgent(lattice)
+    # Weights are initialized after call
+    agent_action_index = agent.act(observation)
+
+    assert not agent.policy_network.trainable

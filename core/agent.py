@@ -14,6 +14,8 @@ class RLAgent():
         self.policy_network = GraphPolicyNetwork(
             graph=graph, n_node_features=1, n_hidden=n_hidden, n_classes=2
         )
+        # By default, not trainable
+        self.policy_network.trainable = False
         self.optimizer = Adam(learning_rate=learning_rate)
 
     def act(self, observation):
