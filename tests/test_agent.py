@@ -50,10 +50,16 @@ def test_rl_agent_has_correct_lattice_adjacency():
 
     agent = RLAgent(lattice)
 
-    adjacency_from_agent = agent.policy_network.graph.adj(scipy_fmt="coo").todense()
-    adjacency_from_environment = environment.lattice.adj(scipy_fmt="coo").todense()
+    adjacency_from_agent = agent.policy_network.graph.adj(
+        scipy_fmt="coo"
+    ).todense()
+    adjacency_from_environment = environment.lattice.adj(
+        scipy_fmt="coo"
+    ).todense()
 
-    np.testing.assert_array_equal(adjacency_from_agent, adjacency_from_environment)
+    np.testing.assert_array_equal(
+        adjacency_from_agent, adjacency_from_environment
+    )
 
 
 # test trainable

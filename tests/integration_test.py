@@ -1,7 +1,7 @@
 from core.agent import RLAgent
 from core.environment import KagomeLatticeEnv
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     env = KagomeLatticeEnv(n_sq_cells=2)
     agent = RLAgent(env, n_hidden=10, learning_rate=0.0005)
 

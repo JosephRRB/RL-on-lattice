@@ -4,7 +4,7 @@ import tensorflow as tf
 from core.environment import (
     KagomeLatticeEnv,
     _create_coord_int_mappings,
-    _create_edge_list
+    _create_edge_list,
 )
 
 
