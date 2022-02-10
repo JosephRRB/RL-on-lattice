@@ -57,6 +57,8 @@ class KagomeLatticeEnv:
         self.spin_state = new_spins
         return self.spin_state, reward
 
+
+
     #
     # def _calculate_log_proba_of_state(self, graph):
     #     with graph.local_scope():

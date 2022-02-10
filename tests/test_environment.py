@@ -111,25 +111,85 @@ def test_environment_gives_correct_spins():
     assert all(np.unique(observation) == [-1, 1])
 
 
+def test_environment_spin_state_is_on_gpu():
+    environment = KagomeLatticeEnv(n_sq_cells=2)
+    observation = environment.reset()
+    assert "GPU" in observation.device
+
+
+def test_environment_reset_gives_correct_spin_dtypes():
+    environment = KagomeLatticeEnv(n_sq_cells=2)
+    observation = environment.reset()
+
+    assert observation.dtype == tf.float32
+
+
 def test_environment_resets():
     environment = KagomeLatticeEnv(n_sq_cells=20)
     observation_1 = environment.reset()
     observation_2 = environment.reset()
 
-    assert any(observation_1 != observation_2)
+    assert any(tf.math.not_equal(observation_1, observation_2))
 
 
 def test_environment_correctly_tracks_lattice_spins_between_resets():
     environment = KagomeLatticeEnv(n_sq_cells=20)
     observation_1 = environment.reset()
-    assert all(observation_1 == environment.spin_state)
+    tf.debugging.assert_equal(observation_1, environment.spin_state)
 
     observation_2 = environment.reset()
-    assert all(observation_2 == environment.spin_state)
+    tf.debugging.assert_equal(observation_2, environment.spin_state)
 
 
 def test_environment_correctly_flips_spins_based_on_agent_action():
     environment = KagomeLatticeEnv(n_sq_cells=2)
     old_observation = environment.reset()
 
-    # agent_action_index =
+    agent_action_index = tf.constant(
+        [[0], [1], [0], [1], [0], [1], [0], [1], [0], [1], [0], [1]],
+        dtype=tf.int64,
+    )
+
+    new_observation, _ = environment.step(agent_action_index)
+
+    tf.debugging.assert_equal(
+        new_observation[::2, 0], -old_observation[::2, 0]
+    )
+    tf.debugging.assert_equal(
+        new_observation[1::2, 0], old_observation[1::2, 0]
+    )
+
+
+def test_environment_correctly_tracks_lattice_spins_after_steps():
+    environment = KagomeLatticeEnv(n_sq_cells=2)
+    old_observation = environment.reset()
+
+    agent_action_index = tf.constant(
+        [[0], [1], [0], [1], [0], [1], [0], [1], [0], [1], [0], [1]],
+        dtype=tf.int64,
+    )
+
+    new_observation, _ = environment.step(agent_action_index)
+    tf.debugging.assert_equal(environment.spin_state, new_observation)
+
+    agent_action_index2 = tf.constant(
+        [[0], [0], [0], [0], [0], [0], [1], [1], [1], [1], [1], [1]],
+        dtype=tf.int64,
+    )
+
+    new_observation2, _ = environment.step(agent_action_index2)
+    assert any(tf.math.not_equal(new_observation, new_observation2))
+    tf.debugging.assert_equal(environment.spin_state, new_observation2)
+
+
+def test_environment_step_gives_correct_spin_dtypes():
+    environment = KagomeLatticeEnv(n_sq_cells=2)
+    old_observation = environment.reset()
+
+    agent_action_index = tf.constant(
+        [[0], [1], [0], [1], [0], [1], [0], [1], [0], [1], [0], [1]],
+        dtype=tf.int64,
+    )
+
+    new_observation, _ = environment.step(agent_action_index)
+    assert new_observation.dtype == tf.float32
