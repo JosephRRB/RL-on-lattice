@@ -57,8 +57,6 @@ class KagomeLatticeEnv:
         self.spin_state = new_spins
         return self.spin_state, reward
 
-
-
     #
     # def _calculate_log_proba_of_state(self, graph):
     #     with graph.local_scope():
@@ -143,51 +141,39 @@ def _create_lattice(edge_list, coord_to_int_map):
     lattice = dgl.from_networkx(graph).to("/device:GPU:0")
     return lattice
 
+
 def _calculate_reward(old_spins, new_spins):
     old_feats = tf.reshape((old_spins + 1) / 2, shape=(-1,))
     new_feats = tf.reshape((new_spins + 1) / 2, shape=(-1,))
 
-    cross_tab = tf.math.confusion_matrix(
+    joint_counts = tf.math.confusion_matrix(
         old_feats, new_feats, num_classes=2, dtype=tf.float32
     )
+    counts_old = tf.reduce_sum(joint_counts, axis=1)
+    counts_new = tf.reduce_sum(joint_counts, axis=0)
+    total_counts = tf.reduce_sum(joint_counts)
 
-    counts_old = tf.reduce_sum(cross_tab, axis=1, keepdims=True)
-    counts_new = tf.reduce_sum(cross_tab, axis=0, keepdims=True)
-    total_counts = tf.reduce_sum(cross_tab)
+    joint_entropy = _calculate_entropy(joint_counts, total_counts)
+    old_entropy = _calculate_entropy(counts_old, total_counts)
+    new_entropy = _calculate_entropy(counts_new, total_counts)
 
-    mutual_info = tf.reduce_sum(
+    variation_of_info = 2 * joint_entropy - old_entropy - new_entropy
+
+    bound = 2 * tf.constant(2, dtype=tf.float32)
+    clipped = tf.clip_by_value(
+        variation_of_info / bound, clip_value_min=1e-12, clip_value_max=1
+    )
+    return clipped
+
+
+def _calculate_entropy(counts, total_counts):
+    entropy = -tf.reduce_sum(
         tf.where(
-            tf.not_equal(cross_tab, 0),
-            cross_tab
-            * (
-                tf.math.log(cross_tab)
-                - tf.math.log(counts_old)
-                - tf.math.log(counts_new)
-                + tf.math.log(total_counts)
-            )
+            tf.not_equal(counts, 0),
+            counts
+            * (tf.math.log(counts) - tf.math.log(total_counts))
             / total_counts,
             0,
         )
     )
-
-    old_entropy = -tf.reduce_sum(
-        tf.where(
-            tf.not_equal(counts_old, 0),
-            counts_old
-            * (tf.math.log(counts_old) - tf.math.log(total_counts))
-            / total_counts,
-            0,
-        )
-    )
-
-    new_entropy = -tf.reduce_sum(
-        tf.where(
-            tf.not_equal(counts_new, 0),
-            counts_new
-            * (tf.math.log(counts_new) - tf.math.log(total_counts))
-            / total_counts,
-            0,
-        )
-    )
-    var_info = old_entropy + new_entropy - 2 * mutual_info
-    return var_info + 1e-9  ## add a small constant bias
+    return entropy
