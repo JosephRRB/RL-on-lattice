@@ -216,7 +216,7 @@ def test_completely_ordered_spin_state_gives_zero_entropy():
     tf.debugging.assert_equal(entropy, expected)
 
 
-def test_joint_entropy_of_independent_spin_states_is_sum_of_entropies():
+def test_joint_entropy_of_stat_independent_spin_states_is_sum_of_entropies():
     spin_count = tf.constant([[25, 0], [75, 0]], dtype=tf.float32)
     total_counts = tf.constant(100, dtype=tf.float32)
 
@@ -228,3 +228,13 @@ def test_joint_entropy_of_independent_spin_states_is_sum_of_entropies():
     entropy_B = _calculate_entropy(spin_count_B, total_counts)
 
     tf.debugging.assert_equal(joint_entropy, entropy_A + entropy_B)
+
+
+def test_joint_entropy_of_stat_dependent_spin_states():
+    spin_count = tf.constant([[50, 0], [25, 25]], dtype=tf.float32)
+    total_counts = tf.constant(100, dtype=tf.float32)
+    expected = 3 * tf.math.log(tf.constant(2, dtype=tf.float32)) / 2
+
+    joint_entropy = _calculate_entropy(spin_count, total_counts)
+
+    tf.debugging.assert_equal(joint_entropy, expected)
