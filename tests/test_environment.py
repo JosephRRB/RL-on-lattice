@@ -5,6 +5,7 @@ from core.environment import (
     KagomeLatticeEnv,
     _create_coord_int_mappings,
     _create_edge_list,
+    _calculate_entropy,
 )
 
 
@@ -193,3 +194,37 @@ def test_environment_step_gives_correct_spin_dtypes():
 
     new_observation, _ = environment.step(agent_action_index)
     assert new_observation.dtype == tf.float32
+
+
+def test_completely_disordered_spin_state_gives_max_entropy():
+    spin_count = tf.constant([50, 50], dtype=tf.float32)
+    total_counts = tf.constant(100, dtype=tf.float32)
+    expected = tf.math.log(tf.constant(2, dtype=tf.float32))
+
+    entropy = _calculate_entropy(spin_count, total_counts)
+
+    tf.debugging.assert_equal(entropy, expected)
+
+
+def test_completely_ordered_spin_state_gives_zero_entropy():
+    spin_count = tf.constant([0, 100], dtype=tf.float32)
+    total_counts = tf.constant(100, dtype=tf.float32)
+    expected = tf.constant(0, dtype=tf.float32)
+
+    entropy = _calculate_entropy(spin_count, total_counts)
+
+    tf.debugging.assert_equal(entropy, expected)
+
+
+def test_joint_entropy_of_independent_spin_states_is_sum_of_entropies():
+    spin_count = tf.constant([[25, 0], [75, 0]], dtype=tf.float32)
+    total_counts = tf.constant(100, dtype=tf.float32)
+
+    spin_count_A = tf.reduce_sum(spin_count, axis=0)
+    spin_count_B = tf.reduce_sum(spin_count, axis=1)
+
+    joint_entropy = _calculate_entropy(spin_count, total_counts)
+    entropy_A = _calculate_entropy(spin_count_A, total_counts)
+    entropy_B = _calculate_entropy(spin_count_B, total_counts)
+
+    tf.debugging.assert_equal(joint_entropy, entropy_A + entropy_B)

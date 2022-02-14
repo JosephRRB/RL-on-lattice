@@ -141,7 +141,11 @@ def _create_lattice(edge_list, coord_to_int_map):
     lattice = dgl.from_networkx(graph).to("/device:GPU:0")
     return lattice
 
-
+# Information Theoretic Measures for Clusterings Comparison:
+# Variants, Properties, Normalization and Correction for Chance
+# Nguyen Xuan Vinh, Julien Epps, James Bailey
+# Comparing clusterings by the variation of information
+# Marina Meil ̆a
 def _calculate_reward(old_spins, new_spins):
     old_feats = tf.reshape((old_spins + 1) / 2, shape=(-1,))
     new_feats = tf.reshape((new_spins + 1) / 2, shape=(-1,))
@@ -159,7 +163,7 @@ def _calculate_reward(old_spins, new_spins):
 
     variation_of_info = 2 * joint_entropy - old_entropy - new_entropy
 
-    bound = 2 * tf.constant(2, dtype=tf.float32)
+    bound = 2 * tf.math.log(tf.constant(2, dtype=tf.float32))
     clipped = tf.clip_by_value(
         variation_of_info / bound, clip_value_min=1e-12, clip_value_max=1
     )
