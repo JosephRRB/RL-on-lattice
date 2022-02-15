@@ -60,6 +60,24 @@ class KagomeLatticeEnv:
         self.spin_state = new_spins
         return self.spin_state, clipped_reward
 
+    def _calculate_log_proba_of_spin_state(self, spin_state):
+        with self.lattice.local_scope():
+            self.lattice.ndata["spin"] = spin_state
+            self.lattice.apply_edges(
+                dgl.function.v_mul_u("spin", "spin", "spin_interaction")
+            )
+            # number of edges were doubled because undirected edges
+            # are represented as two oppositely directed edges
+            total_spin_interaction = (
+                    dgl.readout_edges(self.lattice, "spin_interaction") / 2
+            )
+            total_spin = dgl.readout_nodes(self.lattice, "spin")
+            negative_energy = (
+                    self.spin_coupling * total_spin_interaction
+                    + self.external_B * total_spin
+            )
+            log_probability = self.inverse_temp * negative_energy
+            return log_probability
     #
     # def _calculate_log_proba_of_state(self, graph):
     #     with graph.local_scope():

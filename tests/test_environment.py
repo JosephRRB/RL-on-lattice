@@ -366,3 +366,33 @@ def test_environment_reward_is_clipped_close_but_not_zero():
 
     tf.debugging.assert_near(reward, expected)
     tf.debugging.assert_none_equal(reward, expected)
+
+
+def test_environment_calculates_correct_log_proba_of_spin_state():
+    env = KagomeLatticeEnv(
+        n_sq_cells=2,
+        inverse_temp=0.5,
+        spin_coupling=1.5,
+        external_B=-0.25,
+    )
+    # Put to GPU
+    spin_state = tf.cast(
+        tf.constant(
+            [[1], [1], [-1], [-1], [1], [1], [-1], [-1], [1], [1], [1], [-1]],
+        ),
+        dtype=tf.float32,
+    )
+
+    log_probability = env._calculate_log_proba_of_spin_state(spin_state)
+
+    n_edges_with_same_spin = 14
+    n_edges_with_opposite_spin = 10
+    total_spin_interaction = (
+        n_edges_with_same_spin - n_edges_with_opposite_spin
+    )
+    total_spin = 7 - 5
+    expected_log_probability = env.inverse_temp * (
+        env.spin_coupling * total_spin_interaction
+        + env.external_B * total_spin
+    )
+    assert log_probability == expected_log_probability
