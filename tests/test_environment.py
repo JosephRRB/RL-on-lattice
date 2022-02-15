@@ -154,11 +154,9 @@ def test_environment_correctly_flips_spins_based_on_agent_action():
 
     new_observation, _, _ = environment.step(agent_action_index)
 
+    tf.debugging.assert_equal(new_observation[::2, 0], old_observation[::2, 0])
     tf.debugging.assert_equal(
-        new_observation[::2, 0], -old_observation[::2, 0]
-    )
-    tf.debugging.assert_equal(
-        new_observation[1::2, 0], old_observation[1::2, 0]
+        new_observation[1::2, 0], -old_observation[1::2, 0]
     )
 
 
@@ -409,3 +407,237 @@ def test_environment_lattice_graph_does_not_have_features_after_log_proba():
     _ = env._calculate_log_proba_of_spin_state(spin_state)
 
     assert env.lattice.ndata == dict()
+
+
+def test_aligning_spin_state_is_more_likely_if_ferromagnetic():
+    # set external_B to 0
+    env = KagomeLatticeEnv(
+        n_sq_cells=2,
+        inverse_temp=1,
+        spin_coupling=1,
+        external_B=0,
+    )
+    # Put to GPU
+    # Node 8 is misaligned with respect to its nearest neighbors
+    old_spin_state = tf.cast(
+        tf.constant(
+            [[1], [1], [1], [-1], [1], [-1], [-1], [-1], [1], [-1], [1], [-1]],
+        ),
+        dtype=tf.float32,
+    )
+    env.spin_state = old_spin_state
+
+    # Flip node 8
+    agent_action_index = tf.constant(
+        [[0], [0], [0], [0], [0], [0], [0], [0], [1], [0], [0], [0]],
+        dtype=tf.int64,
+    )
+
+    _, _, delta_log_proba = env.step(agent_action_index)
+
+    assert env.spin_coupling > 0
+    assert delta_log_proba > 0
+
+
+def test_misaligning_spin_state_is_less_likely_if_ferromagnetic():
+    # set external_B to 0
+    env = KagomeLatticeEnv(
+        n_sq_cells=2,
+        inverse_temp=1,
+        spin_coupling=1,
+        external_B=0,
+    )
+    # Put to GPU
+    # Node 8 is aligned with respect to its nearest neighbors
+    old_spin_state = tf.cast(
+        tf.constant(
+            [
+                [1],
+                [1],
+                [1],
+                [-1],
+                [1],
+                [-1],
+                [-1],
+                [-1],
+                [-1],
+                [-1],
+                [1],
+                [-1],
+            ],
+        ),
+        dtype=tf.float32,
+    )
+    env.spin_state = old_spin_state
+
+    # Flip node 8
+    agent_action_index = tf.constant(
+        [[0], [0], [0], [0], [0], [0], [0], [0], [1], [0], [0], [0]],
+        dtype=tf.int64,
+    )
+
+    _, _, delta_log_proba = env.step(agent_action_index)
+
+    assert env.spin_coupling > 0
+    assert delta_log_proba < 0
+
+
+def test_aligning_spin_state_is_less_likely_if_antiferromagnetic():
+    # set external_B to 0
+    env = KagomeLatticeEnv(
+        n_sq_cells=2,
+        inverse_temp=1,
+        spin_coupling=-1,
+        external_B=0,
+    )
+    # Put to GPU
+    # Node 8 is misaligned with respect to its nearest neighbors
+    old_spin_state = tf.cast(
+        tf.constant(
+            [[1], [1], [1], [-1], [1], [-1], [-1], [-1], [1], [-1], [1], [-1]],
+        ),
+        dtype=tf.float32,
+    )
+    env.spin_state = old_spin_state
+
+    # Flip node 8
+    agent_action_index = tf.constant(
+        [[0], [0], [0], [0], [0], [0], [0], [0], [1], [0], [0], [0]],
+        dtype=tf.int64,
+    )
+
+    _, _, delta_log_proba = env.step(agent_action_index)
+
+    assert env.spin_coupling < 0
+    assert delta_log_proba < 0
+
+
+def test_misaligning_spin_state_is_more_likely_if_antiferromagnetic():
+    # set external_B to 0
+    env = KagomeLatticeEnv(
+        n_sq_cells=2,
+        inverse_temp=1,
+        spin_coupling=-1,
+        external_B=0,
+    )
+    # Put to GPU
+    # Node 8 is aligned with respect to its nearest neighbors
+    old_spin_state = tf.cast(
+        tf.constant(
+            [
+                [1],
+                [1],
+                [1],
+                [-1],
+                [1],
+                [-1],
+                [-1],
+                [-1],
+                [-1],
+                [-1],
+                [1],
+                [-1],
+            ],
+        ),
+        dtype=tf.float32,
+    )
+    env.spin_state = old_spin_state
+
+    # Flip node 8
+    agent_action_index = tf.constant(
+        [[0], [0], [0], [0], [0], [0], [0], [0], [1], [0], [0], [0]],
+        dtype=tf.int64,
+    )
+
+    _, _, delta_log_proba = env.step(agent_action_index)
+
+    assert env.spin_coupling < 0
+    assert delta_log_proba > 0
+
+
+def test_aligning_spin_to_external_B_is_more_likely():
+    # set spin_coupling to 0
+    env = KagomeLatticeEnv(
+        n_sq_cells=2,
+        inverse_temp=1,
+        spin_coupling=0,
+        external_B=-0.5,
+    )
+    B_direction = int(np.sign(env.external_B))
+
+    # Put to GPU
+    # Node 8 is misaligned with respect to the external magnetic field
+    old_spin_state = tf.cast(
+        tf.constant(
+            [
+                [1],
+                [1],
+                [1],
+                [-1],
+                [1],
+                [-1],
+                [-1],
+                [-1],
+                [-B_direction],
+                [-1],
+                [1],
+                [-1],
+            ],
+        ),
+        dtype=tf.float32,
+    )
+    env.spin_state = old_spin_state
+
+    # Flip node 8
+    agent_action_index = tf.constant(
+        [[0], [0], [0], [0], [0], [0], [0], [0], [1], [0], [0], [0]],
+        dtype=tf.int64,
+    )
+
+    _, _, delta_log_proba = env.step(agent_action_index)
+
+    assert delta_log_proba > 0
+
+
+def test_misaligning_spin_to_external_B_is_more_likely():
+    # set spin_coupling to 0
+    env = KagomeLatticeEnv(
+        n_sq_cells=2,
+        inverse_temp=1,
+        spin_coupling=0,
+        external_B=-0.5,
+    )
+    B_direction = int(np.sign(env.external_B))
+
+    # Put to GPU
+    # Node 8 is aligned with respect to the external magnetic field
+    old_spin_state = tf.cast(
+        tf.constant(
+            [
+                [1],
+                [1],
+                [1],
+                [-1],
+                [1],
+                [-1],
+                [-1],
+                [-1],
+                [B_direction],
+                [-1],
+                [1],
+                [-1],
+            ],
+        ),
+        dtype=tf.float32,
+    )
+    env.spin_state = old_spin_state
+
+    # Flip node 8
+    agent_action_index = tf.constant(
+        [[0], [0], [0], [0], [0], [0], [0], [0], [1], [0], [0], [0]],
+        dtype=tf.int64,
+    )
+
+    _, _, delta_log_proba = env.step(agent_action_index)
+
+    assert delta_log_proba < 0

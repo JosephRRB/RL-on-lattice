@@ -43,12 +43,12 @@ class KagomeLatticeEnv:
         """
 
         action_index: Tensor of shape (N_nodes, 1)
-            that contains 0 (-1 spin) and 1 (+1 spin)
+            that contains 1 (flip spin) and 0 (retain spin)
         """
         old_spins = self.spin_state
 
         # flip spins
-        action = tf.cast(2 * action_index - 1, dtype=tf.float32)
+        action = tf.cast(1 - 2 * action_index, dtype=tf.float32)
         new_spins = old_spins * action
 
         # reward
