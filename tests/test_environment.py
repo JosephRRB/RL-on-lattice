@@ -6,6 +6,7 @@ from core.environment import (
     _create_coord_int_mappings,
     _create_edge_list,
     _calculate_entropy,
+    _calculate_reward,
 )
 
 
@@ -217,7 +218,7 @@ def test_completely_ordered_spin_state_gives_zero_entropy():
 
 
 def test_joint_entropy_of_stat_independent_spin_states_is_sum_of_entropies():
-    spin_count = tf.constant([[25, 0], [75, 0]], dtype=tf.float32)
+    spin_count = tf.constant([[10, 15], [30, 45]], dtype=tf.float32)
     total_counts = tf.constant(100, dtype=tf.float32)
 
     spin_count_A = tf.reduce_sum(spin_count, axis=0)
@@ -238,3 +239,115 @@ def test_joint_entropy_of_stat_dependent_spin_states():
     joint_entropy = _calculate_entropy(spin_count, total_counts)
 
     tf.debugging.assert_equal(joint_entropy, expected)
+
+
+def test_reward_for_unchanged_spin_state_is_zero():
+    spin_state = tf.constant(
+        [[-1], [1], [-1], [-1], [-1], [1], [1], [1], [-1], [1], [1], [1]],
+        dtype=tf.float32,
+    )
+    expected = tf.constant(0, dtype=tf.float32)
+
+    reward = _calculate_reward(spin_state, spin_state)
+
+    tf.debugging.assert_equal(reward, expected)
+
+
+def test_reward_for_changing_all_spins_is_zero():
+    old_spin_state = tf.constant(
+        [[-1], [1], [-1], [-1], [-1], [1], [1], [1], [-1], [1], [1], [1]],
+        dtype=tf.float32,
+    )
+    new_spin_state = tf.constant(
+        [[1], [-1], [1], [1], [1], [-1], [-1], [-1], [1], [-1], [-1], [-1]],
+        dtype=tf.float32,
+    )
+    expected = tf.constant(0, dtype=tf.float32)
+
+    reward = _calculate_reward(old_spin_state, new_spin_state)
+
+    tf.debugging.assert_equal(reward, expected)
+
+
+def test_reward_for_unchanged_completely_ordered_spin_state_is_zero():
+    spin_state = tf.constant(
+        [
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+        ],
+        dtype=tf.float32,
+    )
+    expected = tf.constant(0, dtype=tf.float32)
+
+    reward = _calculate_reward(spin_state, spin_state)
+
+    tf.debugging.assert_equal(reward, expected)
+
+
+def test_reward_for_changing_all_spins_for_completely_ordered_spin_state_is_zero():
+    old_spin_state = tf.constant(
+        [
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+            [-1],
+        ],
+        dtype=tf.float32,
+    )
+    new_spin_state = tf.constant(
+        [
+            [1],
+            [1],
+            [1],
+            [1],
+            [1],
+            [1],
+            [1],
+            [1],
+            [1],
+            [1],
+            [1],
+            [1],
+        ],
+        dtype=tf.float32,
+    )
+    expected = tf.constant(0, dtype=tf.float32)
+
+    reward = _calculate_reward(old_spin_state, new_spin_state)
+
+    tf.debugging.assert_equal(reward, expected)
+
+
+def test_reward_for_stat_independent_spin_states_is_one():
+    old_spin_state = tf.constant(
+        [[1], [1], [1], [-1], [-1], [-1], [-1], [-1], [-1], [-1], [-1], [-1]],
+        dtype=tf.float32,
+    )
+    new_spin_state = tf.constant(
+        [[1], [1], [-1], [1], [1], [1], [1], [1], [1], [-1], [-1], [-1]],
+        dtype=tf.float32,
+    )
+
+    expected = tf.constant(1, dtype=tf.float32)
+
+    reward = _calculate_reward(old_spin_state, new_spin_state)
+
+    tf.debugging.assert_equal(reward, expected)

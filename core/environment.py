@@ -52,10 +52,13 @@ class KagomeLatticeEnv:
         new_spins = old_spins * action
 
         reward = _calculate_reward(old_spins, new_spins)
+        clipped_reward = tf.clip_by_value(
+            reward, clip_value_min=1e-12, clip_value_max=1
+        )
 
         # new observation
         self.spin_state = new_spins
-        return self.spin_state, reward
+        return self.spin_state, clipped_reward
 
     #
     # def _calculate_log_proba_of_state(self, graph):
@@ -141,6 +144,7 @@ def _create_lattice(edge_list, coord_to_int_map):
     lattice = dgl.from_networkx(graph).to("/device:GPU:0")
     return lattice
 
+
 # Information Theoretic Measures for Clusterings Comparison:
 # Variants, Properties, Normalization and Correction for Chance
 # Nguyen Xuan Vinh, Julien Epps, James Bailey
@@ -162,12 +166,12 @@ def _calculate_reward(old_spins, new_spins):
     new_entropy = _calculate_entropy(counts_new, total_counts)
 
     variation_of_info = 2 * joint_entropy - old_entropy - new_entropy
-
-    bound = 2 * tf.math.log(tf.constant(2, dtype=tf.float32))
-    clipped = tf.clip_by_value(
-        variation_of_info / bound, clip_value_min=1e-12, clip_value_max=1
+    normalized_vi = tf.where(
+        tf.not_equal(joint_entropy, 0),
+        variation_of_info / joint_entropy,
+        0,
     )
-    return clipped
+    return normalized_vi
 
 
 def _calculate_entropy(counts, total_counts):
