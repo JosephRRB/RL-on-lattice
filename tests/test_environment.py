@@ -152,7 +152,7 @@ def test_environment_correctly_flips_spins_based_on_agent_action():
         dtype=tf.int64,
     )
 
-    new_observation, _ = environment.step(agent_action_index)
+    new_observation, _, _ = environment.step(agent_action_index)
 
     tf.debugging.assert_equal(
         new_observation[::2, 0], -old_observation[::2, 0]
@@ -171,7 +171,7 @@ def test_environment_correctly_tracks_lattice_spins_after_steps():
         dtype=tf.int64,
     )
 
-    new_observation, _ = environment.step(agent_action_index)
+    new_observation, _, _ = environment.step(agent_action_index)
     tf.debugging.assert_equal(environment.spin_state, new_observation)
 
     agent_action_index2 = tf.constant(
@@ -179,7 +179,7 @@ def test_environment_correctly_tracks_lattice_spins_after_steps():
         dtype=tf.int64,
     )
 
-    new_observation2, _ = environment.step(agent_action_index2)
+    new_observation2, _, _ = environment.step(agent_action_index2)
     assert any(tf.math.not_equal(new_observation, new_observation2))
     tf.debugging.assert_equal(environment.spin_state, new_observation2)
 
@@ -193,7 +193,7 @@ def test_environment_step_gives_correct_spin_dtypes():
         dtype=tf.int64,
     )
 
-    new_observation, _ = environment.step(agent_action_index)
+    new_observation, _, _ = environment.step(agent_action_index)
     assert new_observation.dtype == tf.float32
 
 
@@ -362,7 +362,7 @@ def test_environment_reward_is_clipped_close_but_not_zero():
     )
 
     expected = tf.constant(0, dtype=tf.float32)
-    _, reward = environment.step(agent_action_index)
+    _, reward, _ = environment.step(agent_action_index)
 
     tf.debugging.assert_near(reward, expected)
     tf.debugging.assert_none_equal(reward, expected)
@@ -396,3 +396,16 @@ def test_environment_calculates_correct_log_proba_of_spin_state():
         + env.external_B * total_spin
     )
     assert log_probability == expected_log_probability
+
+
+def test_environment_lattice_graph_does_not_have_features_after_log_proba():
+    env = KagomeLatticeEnv(
+        n_sq_cells=2,
+        inverse_temp=0.5,
+        spin_coupling=1.5,
+        external_B=-0.25,
+    )
+    spin_state = env.reset()
+    _ = env._calculate_log_proba_of_spin_state(spin_state)
+
+    assert env.lattice.ndata == dict()

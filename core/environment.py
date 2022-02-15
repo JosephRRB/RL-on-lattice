@@ -51,14 +51,20 @@ class KagomeLatticeEnv:
         action = tf.cast(2 * action_index - 1, dtype=tf.float32)
         new_spins = old_spins * action
 
+        # reward
         reward = _calculate_reward(old_spins, new_spins)
         clipped_reward = tf.clip_by_value(
             reward, clip_value_min=1e-12, clip_value_max=1
         )
 
+        # delta log proba of state transition
+        log_proba_old = self._calculate_log_proba_of_spin_state(old_spins)
+        log_proba_new = self._calculate_log_proba_of_spin_state(new_spins)
+        delta_log_proba = log_proba_new - log_proba_old
+
         # new observation
         self.spin_state = new_spins
-        return self.spin_state, clipped_reward
+        return self.spin_state, clipped_reward, delta_log_proba
 
     def _calculate_log_proba_of_spin_state(self, spin_state):
         with self.lattice.local_scope():
@@ -69,43 +75,16 @@ class KagomeLatticeEnv:
             # number of edges were doubled because undirected edges
             # are represented as two oppositely directed edges
             total_spin_interaction = (
-                    dgl.readout_edges(self.lattice, "spin_interaction") / 2
+                dgl.readout_edges(self.lattice, "spin_interaction") / 2
             )
             total_spin = dgl.readout_nodes(self.lattice, "spin")
             negative_energy = (
-                    self.spin_coupling * total_spin_interaction
-                    + self.external_B * total_spin
+                self.spin_coupling * total_spin_interaction
+                + self.external_B * total_spin
             )
             log_probability = self.inverse_temp * negative_energy
             return log_probability
-    #
-    # def _calculate_log_proba_of_state(self, graph):
-    #     with graph.local_scope():
-    #         graph.apply_edges(
-    #             dgl.function.v_mul_u("spin", "spin", "spin_interaction")
-    #         )
-    #         ## number of edges were doubled because undirected edges
-    #         ## are represented as two oppositely directed edges
-    #         total_spin_interaction = (
-    #             dgl.readout_edges(graph, "spin_interaction") / 2
-    #         )
-    #         total_spin = dgl.readout_nodes(graph, "spin")
-    #         negative_energy = (
-    #             self.spin_coupling * total_spin_interaction
-    #             + self.external_B * total_spin
-    #         )
-    #         log_probability = self.inverse_temp * negative_energy
-    #         return log_probability
-    #
-    # def calculate_delta_log_proba_of_state(self, old_state, new_state):
-    #     log_proba_of_old_state = self._calculate_log_proba_of_state(old_state)
-    #     log_proba_of_new_state = self._calculate_log_proba_of_state(new_state)
-    #     delta_log_proba_of_state = (
-    #         log_proba_of_new_state - log_proba_of_old_state
-    #     )
-    #     return delta_log_proba_of_state
-    #
-    #
+
     #
     # def render_sub_lattice(self, center_node, radius):
     #     plt.figure(figsize=(10, 5))
@@ -168,6 +147,7 @@ def _create_lattice(edge_list, coord_to_int_map):
 # Nguyen Xuan Vinh, Julien Epps, James Bailey
 # Comparing clusterings by the variation of information
 # Marina Meil ̆a
+@tf.function(experimental_relax_shapes=True)
 def _calculate_reward(old_spins, new_spins):
     old_feats = tf.reshape((old_spins + 1) / 2, shape=(-1,))
     new_feats = tf.reshape((new_spins + 1) / 2, shape=(-1,))
@@ -192,6 +172,7 @@ def _calculate_reward(old_spins, new_spins):
     return normalized_vi
 
 
+@tf.function(experimental_relax_shapes=True)
 def _calculate_entropy(counts, total_counts):
     entropy = -tf.reduce_sum(
         tf.where(
