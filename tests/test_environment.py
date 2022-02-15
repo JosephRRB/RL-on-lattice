@@ -164,7 +164,7 @@ def test_environment_correctly_flips_spins_based_on_agent_action():
 
 def test_environment_correctly_tracks_lattice_spins_after_steps():
     environment = KagomeLatticeEnv(n_sq_cells=2)
-    old_observation = environment.reset()
+    _ = environment.reset()
 
     agent_action_index = tf.constant(
         [[0], [1], [0], [1], [0], [1], [0], [1], [0], [1], [0], [1]],
@@ -186,7 +186,7 @@ def test_environment_correctly_tracks_lattice_spins_after_steps():
 
 def test_environment_step_gives_correct_spin_dtypes():
     environment = KagomeLatticeEnv(n_sq_cells=2)
-    old_observation = environment.reset()
+    _ = environment.reset()
 
     agent_action_index = tf.constant(
         [[0], [1], [0], [1], [0], [1], [0], [1], [0], [1], [0], [1]],
@@ -345,9 +345,24 @@ def test_reward_for_stat_independent_spin_states_is_one():
         [[1], [1], [-1], [1], [1], [1], [1], [1], [1], [-1], [-1], [-1]],
         dtype=tf.float32,
     )
-
     expected = tf.constant(1, dtype=tf.float32)
 
     reward = _calculate_reward(old_spin_state, new_spin_state)
 
     tf.debugging.assert_equal(reward, expected)
+
+
+def test_environment_reward_is_clipped_close_but_not_zero():
+    environment = KagomeLatticeEnv(n_sq_cells=2)
+    _ = environment.reset()
+
+    agent_action_index = tf.constant(
+        [[0], [0], [0], [0], [0], [0], [0], [0], [0], [0], [0], [0]],
+        dtype=tf.int64,
+    )
+
+    expected = tf.constant(0, dtype=tf.float32)
+    _, reward = environment.step(agent_action_index)
+
+    tf.debugging.assert_near(reward, expected)
+    tf.debugging.assert_none_equal(reward, expected)
