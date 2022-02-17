@@ -5,18 +5,16 @@ from tensorflow.keras.activations import relu
 
 class GraphPolicyNetwork(Model):
     def __init__(self,
-                 graph,
                  n_node_features,
                  n_hidden,
                  n_classes):
         super().__init__()
-        self.graph = graph
         self.layer_1 = SAGEConv(n_node_features, n_hidden,
                                 aggregator_type='mean', activation=relu)
         self.layer_2 = SAGEConv(n_hidden, n_classes,
                                 aggregator_type='mean')
 
-    def call(self, inputs, training=None, mask=None):
-        hidden = self.layer_1(self.graph, inputs)
-        output_logits = self.layer_2(self.graph, hidden)
+    def call(self, graphs, node_features):
+        hidden = self.layer_1(graphs, node_features)
+        output_logits = self.layer_2(graphs, hidden)
         return output_logits

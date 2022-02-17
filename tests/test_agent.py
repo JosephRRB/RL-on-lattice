@@ -125,12 +125,20 @@ def test_calculate_correct_log_proba_for_agent_action():
 
     tf.debugging.assert_near(action_log_proba, expected)
 
-    # environment = SpinEnvironment(n_sq_cells=2)
-    # lattice = environment.lattice
-    # observation = environment.reset()
-    #
-    # agent = RLAgent(lattice)
-    # agent_action_index = agent.act(observation)
-    #
-    # encoded_action = _encode_action(agent_action_index)
-    # encoded_action
+
+
+def test_same_agent_action_maps_state_back():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
+    observation_0 = environment.reset()
+
+    agent = RLAgent(lattice)
+    agent_action_index = agent.act(observation_0)
+    observation_1, _, _ = environment.step(agent_action_index)
+    assert any(tf.math.not_equal(environment.spin_state, observation_0))
+
+    # Same action maps observation_1 back to observation_0
+    observation_2, _, _ = environment.step(agent_action_index)
+
+    tf.debugging.assert_equal(observation_2, observation_0)
+
