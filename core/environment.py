@@ -102,14 +102,12 @@ class SpinEnvironment:
     #     nx.draw(sub_G, pos=pos, node_color=color_map)
 
 
-
-
-
 # Information Theoretic Measures for Clusterings Comparison:
 # Variants, Properties, Normalization and Correction for Chance
 # Nguyen Xuan Vinh, Julien Epps, James Bailey
 # Comparing clusterings by the variation of information
 # Marina Meil ̆a
+# May need to change reward function
 @tf.function(experimental_relax_shapes=True)
 def _calculate_reward(old_spins, new_spins):
     old_feats = tf.reshape((old_spins + 1) / 2, shape=(-1,))
@@ -118,8 +116,8 @@ def _calculate_reward(old_spins, new_spins):
     joint_counts = tf.math.confusion_matrix(
         old_feats, new_feats, num_classes=2, dtype=tf.float32
     )
-    counts_old = tf.reduce_sum(joint_counts, axis=1)
-    counts_new = tf.reduce_sum(joint_counts, axis=0)
+    counts_old = tf.reduce_sum(joint_counts, axis=1, keepdims=True)
+    counts_new = tf.reduce_sum(joint_counts, axis=0, keepdims=True)
     total_counts = tf.reduce_sum(joint_counts)
 
     joint_entropy = _calculate_entropy(joint_counts, total_counts)
@@ -144,6 +142,7 @@ def _calculate_entropy(counts, total_counts):
             * (tf.math.log(counts) - tf.math.log(total_counts))
             / total_counts,
             0,
-        )
+        ),
+        keepdims=True,
     )
     return entropy

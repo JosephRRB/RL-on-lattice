@@ -140,7 +140,7 @@ def test_joint_entropy_of_stat_independent_spin_states_is_sum_of_entropies():
     tf.debugging.assert_equal(joint_entropy, entropy_A + entropy_B)
 
 
-def test_joint_entropy_of_stat_dependent_spin_states():
+def test_joint_entropy_of_stat_dependent_spin_states_is_correct():
     spin_count = tf.constant([[50, 0], [25, 25]], dtype=tf.float32)
     total_counts = tf.constant(100, dtype=tf.float32)
     expected = 3 * tf.math.log(tf.constant(2, dtype=tf.float32)) / 2
