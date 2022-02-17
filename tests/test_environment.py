@@ -2,132 +2,39 @@ import numpy as np
 
 import tensorflow as tf
 from core.environment import (
-    KagomeLatticeEnv,
-    _create_coord_int_mappings,
-    _create_edge_list,
+    SpinEnvironment,
     _calculate_entropy,
     _calculate_reward,
 )
-
-
-def test_create_correct_node_connectivity():
-    n_sq_cells = 2
-    edge_list = _create_edge_list(n_sq_cells)
-    expected = [
-        ((0, 0), (0, 1)),
-        ((0, 1), (0, 2)),
-        ((0, 2), (0, 3)),
-        ((0, 3), (0, 0)),
-        ((2, 0), (2, 1)),
-        ((2, 1), (2, 2)),
-        ((2, 2), (2, 3)),
-        ((2, 3), (2, 0)),
-        ((0, 0), (1, 0)),
-        ((1, 0), (2, 0)),
-        ((2, 0), (3, 0)),
-        ((3, 0), (0, 0)),
-        ((0, 2), (1, 2)),
-        ((1, 2), (2, 2)),
-        ((2, 2), (3, 2)),
-        ((3, 2), (0, 2)),
-        ((0, 1), (1, 2)),
-        ((1, 2), (2, 3)),
-        ((2, 3), (3, 0)),
-        ((0, 3), (1, 0)),
-        ((1, 0), (2, 1)),
-        ((2, 1), (3, 2)),
-        ((3, 2), (0, 3)),
-        ((3, 0), (0, 1)),
-    ]
-
-    assert set(edge_list) == set(expected)
-
-
-def test_correct_coord_int_node_mappings():
-    n_sq_cells = 2
-    edge_list = _create_edge_list(n_sq_cells)
-    coord_to_int_mapping, int_to_coord_mapping = _create_coord_int_mappings(
-        edge_list
-    )
-    expected_coord_to_int = {
-        (0, 0): 0,
-        (0, 1): 1,
-        (0, 2): 2,
-        (0, 3): 3,
-        (1, 0): 4,
-        (1, 2): 5,
-        (2, 0): 6,
-        (2, 1): 7,
-        (2, 2): 8,
-        (2, 3): 9,
-        (3, 0): 10,
-        (3, 2): 11,
-    }
-    expected_int_to_coord = {
-        0: (0, 0),
-        1: (0, 1),
-        2: (0, 2),
-        3: (0, 3),
-        4: (1, 0),
-        5: (1, 2),
-        6: (2, 0),
-        7: (2, 1),
-        8: (2, 2),
-        9: (2, 3),
-        10: (3, 0),
-        11: (3, 2),
-    }
-    assert coord_to_int_mapping == expected_coord_to_int
-    assert int_to_coord_mapping == expected_int_to_coord
-
-
-def test_lattice_has_correct_connectivity():
-    environment = KagomeLatticeEnv(n_sq_cells=2)
-    adjacency_of_lattice = environment.lattice.adj(scipy_fmt="coo").todense()
-
-    expected = np.matrix(
-        [
-            # 0  1  2  3  4  5  6  7  8  9  10 11
-            [0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0],  # 0
-            [1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0],  # 1
-            [0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1],  # 2
-            [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1],  # 3
-            [1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0],  # 4
-            [0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0],  # 5
-            [0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0],  # 6
-            [0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1],  # 7
-            [0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1],  # 8
-            [0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0],  # 9
-            [1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0],  # 10
-            [0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0],  # 11
-        ]
-    )
-
-    np.testing.assert_array_equal(adjacency_of_lattice, expected)
+from core.lattice import KagomeLattice
 
 
 def test_environment_gives_correct_spins():
-    environment = KagomeLatticeEnv(n_sq_cells=2)
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
     observation = environment.reset()
 
     assert all(np.unique(observation) == [-1, 1])
 
 
 def test_environment_spin_state_is_on_gpu():
-    environment = KagomeLatticeEnv(n_sq_cells=2)
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
     observation = environment.reset()
     assert "GPU" in observation.device
 
 
 def test_environment_reset_gives_correct_spin_dtypes():
-    environment = KagomeLatticeEnv(n_sq_cells=2)
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
     observation = environment.reset()
 
     assert observation.dtype == tf.float32
 
 
 def test_environment_resets():
-    environment = KagomeLatticeEnv(n_sq_cells=20)
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
     observation_1 = environment.reset()
     observation_2 = environment.reset()
 
@@ -135,7 +42,8 @@ def test_environment_resets():
 
 
 def test_environment_correctly_tracks_lattice_spins_between_resets():
-    environment = KagomeLatticeEnv(n_sq_cells=20)
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
     observation_1 = environment.reset()
     tf.debugging.assert_equal(observation_1, environment.spin_state)
 
@@ -144,7 +52,8 @@ def test_environment_correctly_tracks_lattice_spins_between_resets():
 
 
 def test_environment_correctly_flips_spins_based_on_agent_action():
-    environment = KagomeLatticeEnv(n_sq_cells=2)
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
     old_observation = environment.reset()
 
     agent_action_index = tf.constant(
@@ -161,7 +70,8 @@ def test_environment_correctly_flips_spins_based_on_agent_action():
 
 
 def test_environment_correctly_tracks_lattice_spins_after_steps():
-    environment = KagomeLatticeEnv(n_sq_cells=2)
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
     _ = environment.reset()
 
     agent_action_index = tf.constant(
@@ -183,7 +93,8 @@ def test_environment_correctly_tracks_lattice_spins_after_steps():
 
 
 def test_environment_step_gives_correct_spin_dtypes():
-    environment = KagomeLatticeEnv(n_sq_cells=2)
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
     _ = environment.reset()
 
     agent_action_index = tf.constant(
@@ -350,8 +261,9 @@ def test_reward_for_stat_independent_spin_states_is_one():
     tf.debugging.assert_equal(reward, expected)
 
 
-def test_environment_reward_is_clipped_close_but_not_zero():
-    environment = KagomeLatticeEnv(n_sq_cells=2)
+def test_environment_reward_is_clipped_close_to_but_not_zero():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
     _ = environment.reset()
 
     agent_action_index = tf.constant(
@@ -367,8 +279,9 @@ def test_environment_reward_is_clipped_close_but_not_zero():
 
 
 def test_environment_calculates_correct_log_proba_of_spin_state():
-    env = KagomeLatticeEnv(
-        n_sq_cells=2,
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    env = SpinEnvironment(
+        lattice,
         inverse_temp=0.5,
         spin_coupling=1.5,
         external_B=-0.25,
@@ -397,8 +310,9 @@ def test_environment_calculates_correct_log_proba_of_spin_state():
 
 
 def test_environment_lattice_graph_does_not_have_features_after_log_proba():
-    env = KagomeLatticeEnv(
-        n_sq_cells=2,
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    env = SpinEnvironment(
+        lattice,
         inverse_temp=0.5,
         spin_coupling=1.5,
         external_B=-0.25,
@@ -410,9 +324,10 @@ def test_environment_lattice_graph_does_not_have_features_after_log_proba():
 
 
 def test_aligning_spin_state_is_more_likely_if_ferromagnetic():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
     # set external_B to 0
-    env = KagomeLatticeEnv(
-        n_sq_cells=2,
+    env = SpinEnvironment(
+        lattice,
         inverse_temp=1,
         spin_coupling=1,
         external_B=0,
@@ -440,9 +355,10 @@ def test_aligning_spin_state_is_more_likely_if_ferromagnetic():
 
 
 def test_misaligning_spin_state_is_less_likely_if_ferromagnetic():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
     # set external_B to 0
-    env = KagomeLatticeEnv(
-        n_sq_cells=2,
+    env = SpinEnvironment(
+        lattice,
         inverse_temp=1,
         spin_coupling=1,
         external_B=0,
@@ -483,9 +399,10 @@ def test_misaligning_spin_state_is_less_likely_if_ferromagnetic():
 
 
 def test_aligning_spin_state_is_less_likely_if_antiferromagnetic():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
     # set external_B to 0
-    env = KagomeLatticeEnv(
-        n_sq_cells=2,
+    env = SpinEnvironment(
+        lattice,
         inverse_temp=1,
         spin_coupling=-1,
         external_B=0,
@@ -513,9 +430,10 @@ def test_aligning_spin_state_is_less_likely_if_antiferromagnetic():
 
 
 def test_misaligning_spin_state_is_more_likely_if_antiferromagnetic():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
     # set external_B to 0
-    env = KagomeLatticeEnv(
-        n_sq_cells=2,
+    env = SpinEnvironment(
+        lattice,
         inverse_temp=1,
         spin_coupling=-1,
         external_B=0,
@@ -556,9 +474,10 @@ def test_misaligning_spin_state_is_more_likely_if_antiferromagnetic():
 
 
 def test_aligning_spin_to_external_B_is_more_likely():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
     # set spin_coupling to 0
-    env = KagomeLatticeEnv(
-        n_sq_cells=2,
+    env = SpinEnvironment(
+        lattice,
         inverse_temp=1,
         spin_coupling=0,
         external_B=-0.5,
@@ -600,9 +519,10 @@ def test_aligning_spin_to_external_B_is_more_likely():
 
 
 def test_misaligning_spin_to_external_B_is_more_likely():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
     # set spin_coupling to 0
-    env = KagomeLatticeEnv(
-        n_sq_cells=2,
+    env = SpinEnvironment(
+        lattice,
         inverse_temp=1,
         spin_coupling=0,
         external_B=-0.5,

@@ -5,12 +5,9 @@ import tensorflow as tf
 from core.policy_network import GraphPolicyNetwork
 from tensorflow.keras.optimizers import Adam
 
-class RLAgent():
-    def __init__(self,
-                 graph,
-                 n_hidden=10,
-                 learning_rate=0.0005
-                 ):
+
+class RLAgent:
+    def __init__(self, graph, n_hidden=10, learning_rate=0.0005):
         self.policy_network = GraphPolicyNetwork(
             graph=graph, n_node_features=1, n_hidden=n_hidden, n_classes=2
         )
@@ -21,6 +18,10 @@ class RLAgent():
         action_index = tf.random.categorical(logits, 1)
         return action_index
 
+    def _predict_log_proba(self, observation, action_index):
+        logits = self.policy_network(observation)
+        log_proba = _calculate_log_proba_of_action(logits, action_index)
+        return log_proba
 
 
 #
@@ -207,7 +208,14 @@ class RLAgent():
 
 
 def _encode_action(action_index):
-    encoded_action = tf.one_hot(
-        tf.reshape(action_index, shape=(-1,)), depth=2
-    )
+    encoded_action = tf.one_hot(tf.reshape(action_index, shape=(-1,)), depth=2)
     return encoded_action
+
+
+def _calculate_log_proba_of_action(logits, action_index):
+    log_probas = tf.nn.log_softmax(logits)
+    encoded_action = _encode_action(action_index)
+    action_log_proba = tf.reduce_sum(
+        tf.math.multiply(log_probas, encoded_action)
+    )
+    return action_log_proba

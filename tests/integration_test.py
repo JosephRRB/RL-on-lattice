@@ -1,8 +1,8 @@
 from core.agent import RLAgent
-from core.environment import KagomeLatticeEnv
+from core.environment import SpinEnvironment
 
 if __name__ == "__main__":
-    env = KagomeLatticeEnv(n_sq_cells=2)
+    env = SpinEnvironment(n_sq_cells=2)
     agent = RLAgent(env, n_hidden=10, learning_rate=0.0005)
 
     lattice = env.reset()
