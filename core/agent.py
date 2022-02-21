@@ -20,12 +20,13 @@ class RLAgent:
         return action_index
 
     def _batch_predict_log_proba(self, observations, action_indices):
-        n_batch = observations.shape[0] / self.graph.num_nodes()
-        graphs = dgl.batch([self.graph]*int(n_batch))
+        n_batch = int(observations.shape[0] / self.graph.num_nodes())
+        graphs = dgl.batch([self.graph] * n_batch)
         logits = self.policy_network(graphs, observations)
 
-        # must use batch graph info
-        log_proba = _calculate_log_proba_of_action(logits, action_indices)
+        log_proba = _batch_calculate_log_proba_of_actions(
+            logits, action_indices, n_batch
+        )
         return log_proba
 
 
@@ -217,10 +218,16 @@ def _encode_action(action_index):
     return encoded_action
 
 
-def _calculate_log_proba_of_action(logits, action_index):
+def _batch_calculate_log_proba_of_actions(logits, action_indices, n_batch):
     log_probas = tf.nn.log_softmax(logits)
-    encoded_action = _encode_action(action_index)
-    action_log_proba = tf.reduce_sum(
-        tf.math.multiply(log_probas, encoded_action)
+    encoded_action = _encode_action(action_indices)
+    action_index_log_probas = tf.reduce_sum(
+        tf.math.multiply(log_probas, encoded_action), axis=1
     )
-    return action_log_proba
+    batched_log_probas = tf.reshape(
+        action_index_log_probas, shape=(n_batch, -1)
+    )
+    log_proba_of_actions = tf.reduce_sum(
+        batched_log_probas, axis=1, keepdims=True
+    )
+    return log_proba_of_actions
