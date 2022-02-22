@@ -1,5 +1,6 @@
 import numpy as np
 
+import dgl
 import tensorflow as tf
 from core.agent import (
     RLAgent,
@@ -73,6 +74,28 @@ def test_rl_agent_has_same_lattice_adjacency_with_environment():
 
     np.testing.assert_array_equal(
         adjacency_from_agent, adjacency_from_environment
+    )
+
+
+def test_rl_agent_batched_graphs_has_same_adjacency_as_original():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
+
+    agent = RLAgent(lattice, n_batch=2)
+
+    g1, g2 = dgl.unbatch(agent.batch_graphs)
+
+    adjacency_for_first = g1.adj(scipy_fmt="coo").todense()
+    adjacency_for_second = g2.adj(scipy_fmt="coo").todense()
+    adjacency_from_environment = environment.lattice.adj(
+        scipy_fmt="coo"
+    ).todense()
+
+    np.testing.assert_array_equal(
+        adjacency_for_first, adjacency_from_environment
+    )
+    np.testing.assert_array_equal(
+        adjacency_for_second, adjacency_from_environment
     )
 
 
