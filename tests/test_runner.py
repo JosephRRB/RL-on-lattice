@@ -24,3 +24,37 @@ def test_runner_gives_correct_state_transitions():
     tf.debugging.assert_equal(old1, first_state)
     tf.debugging.assert_equal(new1, old2)
     tf.debugging.assert_equal(new2, last_state)
+
+
+def test_actions_from_runner_are_consistent_with_environment_transitions():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
+    agent = RLAgent(lattice)
+
+    runner = Runner(environment, agent, n_transitions=2)
+
+    old_obs, actions, new_obs, rewards, en_dlps = runner.run()
+
+    old1, old2 = tf.split(old_obs, 2)
+    act1, act2 = tf.split(actions, 2)
+    new1, new2 = tf.split(new_obs, 2)
+    r1, r2 = tf.split(rewards, 2)
+    dlp1, dlp2 = tf.split(en_dlps, 2)
+
+    # -----------------------------------------------------------------------------------------------------------------
+    environment.spin_state = old1
+    expected_new1, expected_r1, expected_dlp1 = environment.step(act1)
+
+    tf.debugging.assert_equal(new1, expected_new1)
+    tf.debugging.assert_equal(r1, expected_r1)
+    tf.debugging.assert_equal(dlp1, expected_dlp1)
+
+    # -----------------------------------------------------------------------------------------------------------------
+
+    environment.spin_state = old2
+    expected_new2, expected_r2, expected_dlp2 = environment.step(act2)
+
+    tf.debugging.assert_equal(new2, expected_new2)
+    tf.debugging.assert_equal(r2, expected_r2)
+    tf.debugging.assert_equal(dlp2, expected_dlp2)
+
