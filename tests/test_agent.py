@@ -21,18 +21,18 @@ def test_rl_agent_has_correct_action_space():
     assert all(np.unique(agent_action_index) == [0, 1])
 
 
-def test_rl_agent_policy_is_on_gpu():
-    lattice = KagomeLattice(n_sq_cells=2).lattice
-    environment = SpinEnvironment(lattice)
-    observation = environment.reset()
-
-    agent = RLAgent(lattice)
-    # Weights are initialized after call
-    _ = agent.act(observation)
-
-    assert all(
-        ["GPU" in weight.device for weight in agent.policy_network.weights]
-    )
+# def test_rl_agent_policy_is_on_gpu():
+#     lattice = KagomeLattice(n_sq_cells=2).lattice
+#     environment = SpinEnvironment(lattice)
+#     observation = environment.reset()
+#
+#     agent = RLAgent(lattice)
+#     # Weights are initialized after call
+#     _ = agent.act(observation)
+#
+#     assert all(
+#         ["GPU" in weight.device for weight in agent.policy_network.weights]
+#     )
 
 
 def test_rl_agent_policy_weights_have_correct_dtype():
