@@ -7,19 +7,25 @@ from tensorflow.keras.optimizers import Adam
 
 
 class RLAgent:
-    def __init__(self, graph, n_batch=2, n_hidden=10, learning_rate=0.0005):
+    def __init__(self, graph, n_hidden=10, learning_rate=0.0005):
         self.graph = graph
-        self.n_batch = n_batch
-        self.batch_graphs = dgl.batch([self.graph] * self.n_batch)
         self.policy_network = GraphPolicyNetwork(
             n_node_features=1, n_hidden=n_hidden, n_classes=2
         )
         self.optimizer = Adam(learning_rate=learning_rate)
 
+        self.n_batch = None
+        self.batch_graphs = None
+
     def act(self, observation):
         logits = self.policy_network(self.graph, observation)
         action_index = tf.random.categorical(logits, 1)
         return action_index
+
+    def _batch_graphs(self, n_batch=2):
+        self.n_batch = n_batch
+        self.batch_graphs = dgl.batch([self.graph] * self.n_batch)
+        return self.batch_graphs
 
     def _batch_predict_log_proba(self, observations, action_indices):
         logits = self.policy_network(self.batch_graphs, observations)

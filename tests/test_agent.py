@@ -81,9 +81,9 @@ def test_rl_agent_batched_graphs_has_same_adjacency_as_original():
     lattice = KagomeLattice(n_sq_cells=2).lattice
     environment = SpinEnvironment(lattice)
 
-    agent = RLAgent(lattice, n_batch=2)
-
-    g1, g2 = dgl.unbatch(agent.batch_graphs)
+    agent = RLAgent(lattice)
+    batch_graphs = agent._batch_graphs(n_batch=2)
+    g1, g2 = dgl.unbatch(batch_graphs)
 
     adjacency_for_first = g1.adj(scipy_fmt="coo").todense()
     adjacency_for_second = g2.adj(scipy_fmt="coo").todense()
