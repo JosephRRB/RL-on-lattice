@@ -365,8 +365,8 @@ def test_aligning_spin_state_is_more_likely_if_ferromagnetic():
     )
 
     old_log_proba = env._calculate_log_probas_of_spin_states(old_spin_state)
-    new_spin_state = env._calculate_log_probas_of_spin_states(new_spin_state)
-    delta_log_proba = new_spin_state - old_log_proba
+    new_log_proba = env._calculate_log_probas_of_spin_states(new_spin_state)
+    delta_log_proba = new_log_proba - old_log_proba
 
     assert env.spin_coupling > 0
     assert delta_log_proba > 0
@@ -440,8 +440,8 @@ def test_misaligning_spin_state_is_less_likely_if_ferromagnetic():
     )
 
     old_log_proba = env._calculate_log_probas_of_spin_states(old_spin_state)
-    new_spin_state = env._calculate_log_probas_of_spin_states(new_spin_state)
-    delta_log_proba = new_spin_state - old_log_proba
+    new_log_proba = env._calculate_log_probas_of_spin_states(new_spin_state)
+    delta_log_proba = new_log_proba - old_log_proba
 
     assert env.spin_coupling > 0
     assert delta_log_proba < 0
@@ -476,8 +476,8 @@ def test_aligning_spin_state_is_less_likely_if_antiferromagnetic():
     )
 
     old_log_proba = env._calculate_log_probas_of_spin_states(old_spin_state)
-    new_spin_state = env._calculate_log_probas_of_spin_states(new_spin_state)
-    delta_log_proba = new_spin_state - old_log_proba
+    new_log_proba = env._calculate_log_probas_of_spin_states(new_spin_state)
+    delta_log_proba = new_log_proba - old_log_proba
 
     assert env.spin_coupling < 0
     assert delta_log_proba < 0
@@ -550,8 +550,8 @@ def test_misaligning_spin_state_is_more_likely_if_antiferromagnetic():
         dtype=tf.float32,
     )
     old_log_proba = env._calculate_log_probas_of_spin_states(old_spin_state)
-    new_spin_state = env._calculate_log_probas_of_spin_states(new_spin_state)
-    delta_log_proba = new_spin_state - old_log_proba
+    new_log_proba = env._calculate_log_probas_of_spin_states(new_spin_state)
+    delta_log_proba = new_log_proba - old_log_proba
 
     assert env.spin_coupling < 0
     assert delta_log_proba > 0
@@ -627,8 +627,8 @@ def test_aligning_spin_to_external_B_is_more_likely():
     )
 
     old_log_proba = env._calculate_log_probas_of_spin_states(old_spin_state)
-    new_spin_state = env._calculate_log_probas_of_spin_states(new_spin_state)
-    delta_log_proba = new_spin_state - old_log_proba
+    new_log_proba = env._calculate_log_probas_of_spin_states(new_spin_state)
+    delta_log_proba = new_log_proba - old_log_proba
 
     assert delta_log_proba > 0
 
@@ -703,8 +703,8 @@ def test_misaligning_spin_to_external_B_is_more_likely():
     )
 
     old_log_proba = env._calculate_log_probas_of_spin_states(old_spin_state)
-    new_spin_state = env._calculate_log_probas_of_spin_states(new_spin_state)
-    delta_log_proba = new_spin_state - old_log_proba
+    new_log_proba = env._calculate_log_probas_of_spin_states(new_spin_state)
+    delta_log_proba = new_log_proba - old_log_proba
 
     assert delta_log_proba < 0
 
