@@ -5,7 +5,7 @@ import tensorflow as tf
 from core.agent import (
     RLAgent,
     _encode_action,
-    _batch_calculate_log_proba_of_actions,
+    _calculate_action_log_probas_from_logits,
 )
 from core.environment import SpinEnvironment
 from core.lattice import KagomeLattice
@@ -82,8 +82,8 @@ def test_rl_agent_batched_graphs_has_same_adjacency_as_original():
     environment = SpinEnvironment(lattice)
 
     agent = RLAgent(lattice)
-    batch_graphs = agent._batch_graphs(n_batch=2)
-    g1, g2 = dgl.unbatch(batch_graphs)
+    agent._batch_graphs(n_batch=2)
+    g1, g2 = dgl.unbatch(agent.batch_graphs)
 
     adjacency_for_first = g1.adj(scipy_fmt="coo").todense()
     adjacency_for_second = g2.adj(scipy_fmt="coo").todense()
@@ -126,8 +126,8 @@ def test_agent_actions_are_properly_encoded():
     tf.debugging.assert_equal(encoded_action, expected)
 
 
-def test_calculate_correct_log_proba_for_agent_action():
-    agent_action_index = tf.constant(
+def test_calculate_correct_log_probas_for_agent_actions():
+    agent_action_index1 = tf.constant(
         [
             [0],
             [1],
@@ -141,6 +141,11 @@ def test_calculate_correct_log_proba_for_agent_action():
             [1],
             [0],
             [1],
+        ],
+        dtype=tf.int64,
+    )
+    agent_action_index2 = tf.constant(
+        [
             [1],
             [0],
             [1],
@@ -170,41 +175,31 @@ def test_calculate_correct_log_proba_for_agent_action():
             [-5.8, -5.8],
             [-1.5, 1.5],
             [-8.5, 7.1],
-            [-1.1, 2.3],
-            [0.3, 0.0],
-            [3.5, 6.3],
-            [-0.4, -8.1],
-            [0.0, 0.0],
-            [0.0, -6.5],
-            [4.2, -5.8],
-            [-4.7, 3.9],
-            [4.1, 4.1],
-            [-5.8, -5.8],
-            [-1.5, 1.5],
-            [-8.5, 7.1],
         ],
         dtype=tf.float32,
     )
+    batched_action_indices = tf.concat([agent_action_index1, agent_action_index2], axis=0)
+    batched_logits = tf.concat([agent_logits, agent_logits], axis=0)
 
-    log_proba_of_actions = _batch_calculate_log_proba_of_actions(
-        agent_logits, agent_action_index, n_batch=2
+    log_probas_of_actions = _calculate_action_log_probas_from_logits(
+        batched_logits, batched_action_indices, n_batch=2
     )
 
-    probas1 = tf.nn.softmax(agent_logits[:12, :])
-    encoded_action1 = _encode_action(agent_action_index[:12, :])
+    # ------------------------------------------------------------------------------------------------------------------
+    probas = tf.nn.softmax(agent_logits)
+
+    encoded_action1 = _encode_action(agent_action_index1)
+    encoded_action2 = _encode_action(agent_action_index2)
+
     expected1 = tf.reduce_sum(
-        tf.math.multiply(tf.math.log(probas1), encoded_action1)
+        tf.math.multiply(tf.math.log(probas), encoded_action1)
     )
-
-    tf.debugging.assert_near(log_proba_of_actions[0, 0], expected1)
-
-    probas2 = tf.nn.softmax(agent_logits[12:, :])
-    encoded_action2 = _encode_action(agent_action_index[12:, :])
     expected2 = tf.reduce_sum(
-        tf.math.multiply(tf.math.log(probas2), encoded_action2)
+        tf.math.multiply(tf.math.log(probas), encoded_action2)
     )
+    expected = tf.reshape(tf.concat([expected1, expected2], axis=0), shape=(-1, 1))
 
-    tf.debugging.assert_near(log_proba_of_actions[1, 0], expected2)
+    tf.debugging.assert_near(log_probas_of_actions, expected)
 
 
 def test_same_agent_action_maps_state_back():
@@ -214,10 +209,10 @@ def test_same_agent_action_maps_state_back():
 
     agent = RLAgent(lattice)
     agent_action_index = agent.act(observation_0)
-    observation_1, _, _ = environment.step(agent_action_index)
+    observation_1, _ = environment.step(agent_action_index)
     assert any(tf.math.not_equal(environment.spin_state, observation_0))
 
     # Same action maps observation_1 back to observation_0
-    observation_2, _, _ = environment.step(agent_action_index)
+    observation_2, _ = environment.step(agent_action_index)
 
     tf.debugging.assert_equal(observation_2, observation_0)

@@ -21,11 +21,12 @@ class SpinEnvironment:
         self.external_B = external_B
 
         self.lattice = lattice
+        self.n_nodes = self.lattice.num_nodes()
         self.spin_state = None
 
     def reset(self):
         random_ints = tf.random.uniform(
-            shape=(self.lattice.num_nodes(), 1),
+            shape=(self.n_nodes, 1),
             maxval=2,
             dtype=tf.int32,
         )
@@ -53,18 +54,19 @@ class SpinEnvironment:
             reward, clip_value_min=1e-12, clip_value_max=1
         )
 
-        # delta log proba of state transition
-        log_proba_old = self._calculate_log_proba_of_spin_state(old_spins)
-        log_proba_new = self._calculate_log_proba_of_spin_state(new_spins)
-        delta_log_proba = log_proba_new - log_proba_old
+        # # delta log proba of state transition
+        # log_proba_old = self._calculate_log_proba_of_spin_state(old_spins)
+        # log_proba_new = self._calculate_log_proba_of_spin_state(new_spins)
+        # delta_log_proba = log_proba_new - log_proba_old
 
         # new observation
         self.spin_state = new_spins
-        return self.spin_state, clipped_reward, delta_log_proba
+        return self.spin_state, clipped_reward#, delta_log_proba
 
-    def _calculate_log_proba_of_spin_state(self, spin_state):
+    def _calculate_log_probas_of_spin_states(self, spin_states):
+        reshaped_spins = tf.transpose(tf.reshape(spin_states, shape=(-1, self.n_nodes)))
         with self.lattice.local_scope():
-            self.lattice.ndata["spin"] = spin_state
+            self.lattice.ndata["spin"] = reshaped_spins
             self.lattice.apply_edges(
                 dgl.function.v_mul_u("spin", "spin", "spin_interaction")
             )
@@ -74,12 +76,12 @@ class SpinEnvironment:
                 dgl.readout_edges(self.lattice, "spin_interaction", op="sum")
                 / 2
             )
-        total_spin = tf.reduce_sum(spin_state)
+        total_spin = tf.reduce_sum(reshaped_spins, axis=0, keepdims=True)
         negative_energy = (
             self.spin_coupling * total_spin_interaction
             + self.external_B * total_spin
         )
-        log_probability = self.inverse_temp * negative_energy
+        log_probability = self.inverse_temp * tf.transpose(negative_energy)
         return log_probability
 
     #

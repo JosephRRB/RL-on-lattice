@@ -25,12 +25,11 @@ class RLAgent:
     def _batch_graphs(self, n_batch=2):
         self.n_batch = n_batch
         self.batch_graphs = dgl.batch([self.graph] * self.n_batch)
-        return self.batch_graphs
 
-    def _batch_predict_log_proba(self, observations, action_indices):
+    def _calculate_log_probas_of_agent_actions(self, observations, action_indices):
         logits = self.policy_network(self.batch_graphs, observations)
 
-        log_proba = _batch_calculate_log_proba_of_actions(
+        log_proba = _calculate_action_log_probas_from_logits(
             logits, action_indices, self.n_batch
         )
         return log_proba
@@ -224,7 +223,7 @@ def _encode_action(action_index):
     return encoded_action
 
 
-def _batch_calculate_log_proba_of_actions(logits, action_indices, n_batch):
+def _calculate_action_log_probas_from_logits(logits, action_indices, n_batch):
     log_probas = tf.nn.log_softmax(logits)
     encoded_action = _encode_action(action_indices)
     action_index_log_probas = tf.reduce_sum(
