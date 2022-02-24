@@ -82,7 +82,7 @@ def test_rl_agent_batched_graphs_has_same_adjacency_as_original():
     environment = SpinEnvironment(lattice)
 
     agent = RLAgent(lattice)
-    agent._batch_graphs(n_batch=2)
+    agent.create_batched_graphs(n_batch=2)
     g1, g2 = dgl.unbatch(agent.batch_graphs)
 
     adjacency_for_first = g1.adj(scipy_fmt="coo").todense()

@@ -22,11 +22,11 @@ class RLAgent:
         action_index = tf.random.categorical(logits, 1)
         return action_index
 
-    def _batch_graphs(self, n_batch=2):
+    def create_batched_graphs(self, n_batch=2):
         self.n_batch = n_batch
         self.batch_graphs = dgl.batch([self.graph] * self.n_batch)
 
-    def _calculate_log_probas_of_agent_actions(self, observations, action_indices):
+    def calculate_log_probas_of_agent_actions(self, observations, action_indices):
         logits = self.policy_network(self.batch_graphs, observations)
 
         log_proba = _calculate_action_log_probas_from_logits(

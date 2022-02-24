@@ -63,7 +63,7 @@ class SpinEnvironment:
         self.spin_state = new_spins
         return self.spin_state, clipped_reward#, delta_log_proba
 
-    def _calculate_log_probas_of_spin_states(self, spin_states):
+    def calculate_log_probas_of_spin_states(self, spin_states):
         reshaped_spins = tf.transpose(tf.reshape(spin_states, shape=(-1, self.n_nodes)))
         with self.lattice.local_scope():
             self.lattice.ndata["spin"] = reshaped_spins

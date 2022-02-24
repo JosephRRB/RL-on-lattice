@@ -55,3 +55,12 @@ def test_actions_from_runner_are_consistent_with_environment_transitions():
     tf.debugging.assert_equal(new2, expected_new2)
     tf.debugging.assert_equal(r2, expected_r2)
 
+
+
+def test():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
+    agent = RLAgent(lattice)
+
+    runner = Runner(environment, agent, n_transitions=2)
+    runner._training_step()
