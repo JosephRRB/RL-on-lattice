@@ -60,29 +60,76 @@ def test_run_trajectory_does_not_change_weights_of_policy_network():
     lattice = KagomeLattice(n_sq_cells=2).lattice
     runner = Runner(SpinEnvironment(lattice), RLAgent(lattice))
 
-    initial_weights = runner.agent.policy_network.trainable_weights
-    _ = runner.run_trajectory(n_transitions=2)
-    final_weights = runner.agent.policy_network.trainable_weights
+    spin_state = tf.constant(
+        [[1], [1], [1], [-1], [1], [-1], [-1], [-1], [-1], [-1], [1], [-1]],
+        dtype=tf.float32,
+    )
+    agent_action_index = tf.constant(
+        [
+            [0],
+            [1],
+            [0],
+            [1],
+            [0],
+            [1],
+            [0],
+            [1],
+            [0],
+            [1],
+            [0],
+            [1],
+        ],
+        dtype=tf.int64,
+    )
 
-    for w0, w1 in zip(initial_weights, final_weights):
-        tf.debugging.assert_equal(w0, w1)
+    # For a fixed input, calculate_log_probas_of_agent_actions only returns a different tensor
+    # when the weights of the policy network are changed
+    initial_res = runner.agent.calculate_log_probas_of_agent_actions(lattice, spin_state, agent_action_index)
+    _ = runner.run_trajectory(n_transitions=2)
+    next_res = runner.agent.calculate_log_probas_of_agent_actions(lattice, spin_state, agent_action_index)
+
+    assert next_res == initial_res
 
 
 def test_train_step_updates_weights_of_policy_network():
     lattice = KagomeLattice(n_sq_cells=2).lattice
     runner = Runner(SpinEnvironment(lattice), RLAgent(lattice))
 
-    initial_weights = runner.agent.policy_network.trainable_weights
+    spin_state = tf.constant(
+        [[1], [1], [1], [-1], [1], [-1], [-1], [-1], [-1], [-1], [1], [-1]],
+        dtype=tf.float32,
+    )
+    agent_action_index = tf.constant(
+        [
+            [0],
+            [1],
+            [0],
+            [1],
+            [0],
+            [1],
+            [0],
+            [1],
+            [0],
+            [1],
+            [0],
+            [1],
+        ],
+        dtype=tf.int64,
+    )
 
+    # For a fixed input, calculate_log_probas_of_agent_actions only returns a different tensor
+    # when the weights of the policy network are changed
+    initial_res = runner.agent.calculate_log_probas_of_agent_actions(lattice, spin_state, agent_action_index)
     n_transitions_per_training_step = 2
     runner.batched_graphs_for_training = _create_batched_graphs(
         runner.agent.graph, n_batch=n_transitions_per_training_step
     )
     runner._training_step(n_transitions=n_transitions_per_training_step)
-    final_weights = runner.agent.policy_network.trainable_weights
+    next_res = runner.agent.calculate_log_probas_of_agent_actions(lattice, spin_state, agent_action_index)
 
-    for w0, w1 in zip(initial_weights, final_weights):
-        assert any(tf.math.not_equal(w0, w1))
+    assert next_res != initial_res
+    # assert tf.math.not_equal(next_res, initial_res)
+
 
 def test():
     lattice = KagomeLattice(n_sq_cells=2).lattice
