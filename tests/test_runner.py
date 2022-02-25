@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from core.agent import RLAgent
+from core.agent import RLAgent, _create_batched_graphs
 from core.environment import SpinEnvironment
 from core.lattice import KagomeLattice
 from core.runner import Runner
@@ -11,10 +11,10 @@ def test_runner_gives_correct_state_transitions():
     environment = SpinEnvironment(lattice)
     agent = RLAgent(lattice)
 
-    runner = Runner(environment, agent, n_transitions=2)
+    runner = Runner(environment, agent)
 
     first_state = runner.environment.spin_state
-    old_obs, _, new_obs, _ = runner.run_trajectory()
+    old_obs, _, new_obs, _ = runner.run_trajectory(n_transitions=2)
 
     old1, old2 = tf.split(old_obs, 2)
     new1, new2 = tf.split(new_obs, 2)
@@ -31,9 +31,9 @@ def test_actions_from_runner_are_consistent_with_environment_transitions():
     environment = SpinEnvironment(lattice)
     agent = RLAgent(lattice)
 
-    runner = Runner(environment, agent, n_transitions=2)
+    runner = Runner(environment, agent)
 
-    old_obs, actions, new_obs, rewards = runner.run_trajectory()
+    old_obs, actions, new_obs, rewards = runner.run_trajectory(n_transitions=2)
 
     old1, old2 = tf.split(old_obs, 2)
     act1, act2 = tf.split(actions, 2)
@@ -62,5 +62,14 @@ def test():
     environment = SpinEnvironment(lattice)
     agent = RLAgent(lattice)
 
-    runner = Runner(environment, agent, n_transitions=2)
-    runner._training_step()
+    runner = Runner(environment, agent)
+
+    # runner.batched_graphs_for_training = _create_batched_graphs(
+    #     runner.agent.graph, n_batch=2
+    # )
+    # runner._training_step(n_transitions=2)
+
+    runner.batched_graphs_for_evaluation = _create_batched_graphs(
+        runner.agent.graph, n_batch=100
+    )
+    runner._evaluate(evaluate_for_n_transitions=100)

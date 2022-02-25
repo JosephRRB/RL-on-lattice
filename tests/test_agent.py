@@ -4,8 +4,9 @@ import dgl
 import tensorflow as tf
 from core.agent import (
     RLAgent,
-    _encode_action,
-    _calculate_action_log_probas_from_logits,
+    # _encode_action,
+    # _calculate_action_log_probas_from_logits,
+    _create_batched_graphs,
 )
 from core.environment import SpinEnvironment
 from core.lattice import KagomeLattice
@@ -77,17 +78,14 @@ def test_rl_agent_has_same_lattice_adjacency_with_environment():
     )
 
 
-def test_rl_agent_batched_graphs_has_same_adjacency_as_original():
+def test_batched_graphs_has_same_adjacency_as_original():
     lattice = KagomeLattice(n_sq_cells=2).lattice
-    environment = SpinEnvironment(lattice)
-
-    agent = RLAgent(lattice)
-    agent.create_batched_graphs(n_batch=2)
-    g1, g2 = dgl.unbatch(agent.batch_graphs)
+    batch_graphs = _create_batched_graphs(lattice, n_batch=2)
+    g1, g2 = dgl.unbatch(batch_graphs)
 
     adjacency_for_first = g1.adj(scipy_fmt="coo").todense()
     adjacency_for_second = g2.adj(scipy_fmt="coo").todense()
-    adjacency_from_environment = environment.lattice.adj(
+    adjacency_from_environment = lattice.adj(
         scipy_fmt="coo"
     ).todense()
 
@@ -98,35 +96,38 @@ def test_rl_agent_batched_graphs_has_same_adjacency_as_original():
         adjacency_for_second, adjacency_from_environment
     )
 
-
-def test_agent_actions_are_properly_encoded():
-    agent_action_index = tf.constant(
-        [[0], [1], [0], [1], [0], [1], [0], [1], [0], [1], [0], [1]],
-        dtype=tf.int64,
-    )
-    encoded_action = _encode_action(agent_action_index)
-    expected = tf.constant(
-        [
-            [1, 0],
-            [0, 1],
-            [1, 0],
-            [0, 1],
-            [1, 0],
-            [0, 1],
-            [1, 0],
-            [0, 1],
-            [1, 0],
-            [0, 1],
-            [1, 0],
-            [0, 1],
-        ],
-        dtype=tf.float32,
-    )
-
-    tf.debugging.assert_equal(encoded_action, expected)
+#
+# def test_agent_actions_are_properly_encoded():
+#     agent_action_index = tf.constant(
+#         [[0], [1], [0], [1], [0], [1], [0], [1], [0], [1], [0], [1]],
+#         dtype=tf.int64,
+#     )
+#     encoded_action = _encode_action(agent_action_index)
+#     expected = tf.constant(
+#         [
+#             [1, 0],
+#             [0, 1],
+#             [1, 0],
+#             [0, 1],
+#             [1, 0],
+#             [0, 1],
+#             [1, 0],
+#             [0, 1],
+#             [1, 0],
+#             [0, 1],
+#             [1, 0],
+#             [0, 1],
+#         ],
+#         dtype=tf.float32,
+#     )
+#
+#     tf.debugging.assert_equal(encoded_action, expected)
 
 
 def test_calculate_correct_log_probas_for_agent_actions():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    agent = RLAgent(lattice)
+
     agent_action_index1 = tf.constant(
         [
             [0],
@@ -181,15 +182,15 @@ def test_calculate_correct_log_probas_for_agent_actions():
     batched_action_indices = tf.concat([agent_action_index1, agent_action_index2], axis=0)
     batched_logits = tf.concat([agent_logits, agent_logits], axis=0)
 
-    log_probas_of_actions = _calculate_action_log_probas_from_logits(
-        batched_logits, batched_action_indices, n_batch=2
+    log_probas_of_actions = agent._calculate_action_log_probas_from_logits(
+        batched_logits, batched_action_indices
     )
 
     # ------------------------------------------------------------------------------------------------------------------
     probas = tf.nn.softmax(agent_logits)
 
-    encoded_action1 = _encode_action(agent_action_index1)
-    encoded_action2 = _encode_action(agent_action_index2)
+    encoded_action1 = tf.one_hot(tf.reshape(agent_action_index1, shape=(-1,)), depth=2)
+    encoded_action2 = tf.one_hot(tf.reshape(agent_action_index2, shape=(-1,)), depth=2)
 
     expected1 = tf.reduce_sum(
         tf.math.multiply(tf.math.log(probas), encoded_action1)
@@ -200,6 +201,42 @@ def test_calculate_correct_log_probas_for_agent_actions():
     expected = tf.reshape(tf.concat([expected1, expected2], axis=0), shape=(-1, 1))
 
     tf.debugging.assert_near(log_probas_of_actions, expected)
+
+
+def test_agent_log_probas_of_actions_have_correct_shape():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    agent = RLAgent(lattice)
+
+    spin_state = tf.constant(
+        [[1], [1], [1], [-1], [1], [-1], [-1], [-1], [-1], [-1], [1], [-1]],
+        dtype=tf.float32,
+    )
+    agent_action_index = tf.constant(
+        [
+            [0],
+            [1],
+            [0],
+            [1],
+            [0],
+            [1],
+            [0],
+            [1],
+            [0],
+            [1],
+            [0],
+            [1],
+        ],
+        dtype=tf.int64,
+    )
+    batched_graphs = _create_batched_graphs(agent.graph, n_batch=2)
+    batched_obs = tf.concat([spin_state, spin_state], axis=0)
+    batched_action_indices = tf.concat([agent_action_index, agent_action_index], axis=0)
+
+    log_proba = agent.calculate_log_probas_of_agent_actions(agent.graph, spin_state, agent_action_index)
+    batch_log_probas = agent.calculate_log_probas_of_agent_actions(batched_graphs, batched_obs, batched_action_indices)
+
+    assert log_proba.shape == (1, 1)
+    assert batch_log_probas.shape == (2, 1)
 
 
 def test_same_agent_action_maps_state_back():

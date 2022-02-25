@@ -2,25 +2,30 @@ import copy
 
 import tensorflow as tf
 
+from core.agent import _create_batched_graphs
+
 
 class Runner:
-    def __init__(self, environment, agent, n_transitions=2):
-        self.n_transitions = n_transitions
+    def __init__(self, environment, agent):
+        # self.n_transitions = n_transitions
 
         self.environment = environment
         self.agent = agent
 
-        self.agent.create_batched_graphs(n_batch=self.n_transitions)
+        # self.agent.create_batched_graphs(n_batch=self.n_transitions)
         self.environment.reset()
 
-    def run_trajectory(self):
+        self.batched_graphs_for_training = None
+        self.batched_graphs_for_evaluation = None
+
+    def run_trajectory(self, n_transitions=2):
         old_obs = []
         actions = []
         new_obs = []
         rewards = []
 
         observation = self.environment.spin_state
-        for _ in range(self.n_transitions):
+        for _ in range(n_transitions):
             old_obs.append(observation)
             action_index = self.agent.act(observation)
             actions.append(action_index)
@@ -38,41 +43,65 @@ class Runner:
 
         return old_obs, actions, new_obs, rewards
 
-    def _training_step(self):
-        old_obs, actions, new_obs, rewards = self.run_trajectory()
+    def _training_step(self, n_transitions=2):
+        "Batch graphs before running _training_step"
+        old_obs, actions, new_obs, rewards = self.run_trajectory(n_transitions=n_transitions)
 
-        old_log_probas = self.environment.calculate_log_probas_of_spin_states(old_obs)
-        new_log_probas = self.environment.calculate_log_probas_of_spin_states(new_obs)
-        delta_log_probas = new_log_probas - old_log_probas
+        with tf.GradientTape() as tape:
+            log_probas_for_loss, bidir_acceptance_log_probas = self._calculate_log_probas(
+                self.batched_graphs_for_training, old_obs, actions, new_obs
+            )
 
-        with tf.GradientTape(persistent=True) as tape:
-            forward_log_probas = self.agent.calculate_log_probas_of_agent_actions(old_obs, actions)
-            # Same action would map back the state
-            backward_log_probas = self.agent.calculate_log_probas_of_agent_actions(new_obs, actions)
-
-            bidir_acceptance_log_probas = -tf.abs(
-                delta_log_probas + backward_log_probas - forward_log_probas
-            ) / 2
-            log_probs = bidir_acceptance_log_probas + (forward_log_probas + backward_log_probas) / 2
             grad_weights_logits = tf.stop_gradient(
                 bidir_acceptance_log_probas + tf.math.log(rewards)
             )
             grad_weights = tf.nn.softmax(grad_weights_logits, axis=0)
             # theoretical ave of grad_weights
-            baseline = 1 / self.n_transitions
+            baseline = 1 / n_transitions
             advantages = grad_weights - baseline
 
             # negative log prob -> gradient descent
-            loss = tf.reduce_sum(-log_probs * advantages)
+            loss = tf.reduce_sum(-log_probas_for_loss * advantages)
 
         grads = tape.gradient(loss, self.agent.policy_network.trainable_weights)
         self.agent.optimizer.apply_gradients(zip(grads, self.agent.policy_network.trainable_weights))
 
+    def _calculate_log_probas(self, graphs, old_obs, actions, new_obs):
+        old_log_probas = self.environment.calculate_log_probas_of_spin_states(old_obs)
+        new_log_probas = self.environment.calculate_log_probas_of_spin_states(new_obs)
+        delta_log_probas = new_log_probas - old_log_probas
 
-    # def train(self, n_training_loops=100):
-    #
-    #     for i in range(n_training_loops):
+        forward_log_probas = self.agent.calculate_log_probas_of_agent_actions(graphs, old_obs, actions)
+        # Same action would map back the state
+        backward_log_probas = self.agent.calculate_log_probas_of_agent_actions(graphs, new_obs, actions)
 
+        bidir_acceptance_log_probas = -tf.abs(
+            delta_log_probas + backward_log_probas - forward_log_probas
+        ) / 2
+        log_probas_for_loss = bidir_acceptance_log_probas + (forward_log_probas + backward_log_probas) / 2
+        return log_probas_for_loss, bidir_acceptance_log_probas
 
+    def train(self, n_training_loops=2000, n_transitions_per_training_step=2,
+              evaluate_after_n_training_steps=100, evaluate_for_n_transitions=100):
+        # self.agent.create_batched_graphs(n_batch=n_transitions_per_training_step)
+        self.batched_graphs_for_training = _create_batched_graphs(
+            self.agent.graph, n_batch=n_transitions_per_training_step
+        )
+        self.batched_graphs_for_evaluation = _create_batched_graphs(
+            self.agent.graph, n_batch=evaluate_for_n_transitions
+        )
+        expected_rewards = []
+        for i in range(n_training_loops):
+            self._training_step(n_transitions=n_transitions_per_training_step)
+            if i % evaluate_after_n_training_steps == 0:
+                expected_reward = self._evaluate(evaluate_for_n_transitions=evaluate_for_n_transitions)
+                expected_rewards.append(expected_reward)
 
-
+    def _evaluate(self, evaluate_for_n_transitions=100):
+        "Batch graphs before running _evaluate"
+        old_obs, actions, new_obs, rewards = self.run_trajectory(n_transitions=evaluate_for_n_transitions)
+        _, bidir_acc_log_probas = self._calculate_log_probas(
+            self.batched_graphs_for_evaluation, old_obs, actions, new_obs
+        )
+        expected_reward = tf.reduce_mean(tf.math.exp(bidir_acc_log_probas)*rewards)
+        return expected_reward
