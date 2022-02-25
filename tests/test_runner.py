@@ -60,94 +60,50 @@ def test_run_trajectory_does_not_change_weights_of_policy_network():
     lattice = KagomeLattice(n_sq_cells=2).lattice
     runner = Runner(SpinEnvironment(lattice), RLAgent(lattice))
 
-    spin_state = tf.constant(
-        [[1], [1], [1], [-1], [1], [-1], [-1], [-1], [-1], [-1], [1], [-1]],
-        dtype=tf.float32,
-    )
-    agent_action_index = tf.constant(
-        [
-            [0],
-            [1],
-            [0],
-            [1],
-            [0],
-            [1],
-            [0],
-            [1],
-            [0],
-            [1],
-            [0],
-            [1],
-        ],
-        dtype=tf.int64,
-    )
-
-    # For a fixed input, calculate_log_probas_of_agent_actions only returns a different tensor
-    # when the weights of the policy network are changed
-    initial_res = runner.agent.calculate_log_probas_of_agent_actions(lattice, spin_state, agent_action_index)
+    initial_weights = runner.agent.policy_network.get_weights()
     _ = runner.run_trajectory(n_transitions=2)
-    next_res = runner.agent.calculate_log_probas_of_agent_actions(lattice, spin_state, agent_action_index)
+    final_weights = runner.agent.policy_network.get_weights()
 
-    assert next_res == initial_res
+    for w0, w1 in zip(initial_weights, final_weights):
+        tf.debugging.assert_equal(w0, w1)
 
 
 def test_train_step_updates_weights_of_policy_network():
     lattice = KagomeLattice(n_sq_cells=2).lattice
     runner = Runner(SpinEnvironment(lattice), RLAgent(lattice))
 
-    spin_state = tf.constant(
-        [[1], [1], [1], [-1], [1], [-1], [-1], [-1], [-1], [-1], [1], [-1]],
-        dtype=tf.float32,
-    )
-    agent_action_index = tf.constant(
-        [
-            [0],
-            [1],
-            [0],
-            [1],
-            [0],
-            [1],
-            [0],
-            [1],
-            [0],
-            [1],
-            [0],
-            [1],
-        ],
-        dtype=tf.int64,
-    )
+    initial_weights = runner.agent.policy_network.get_weights()
 
-    # For a fixed input, calculate_log_probas_of_agent_actions only returns a different tensor
-    # when the weights of the policy network are changed
-    initial_res = runner.agent.calculate_log_probas_of_agent_actions(lattice, spin_state, agent_action_index)
     n_transitions_per_training_step = 2
     runner.batched_graphs_for_training = _create_batched_graphs(
         runner.agent.graph, n_batch=n_transitions_per_training_step
     )
     runner._training_step(n_transitions=n_transitions_per_training_step)
-    next_res = runner.agent.calculate_log_probas_of_agent_actions(lattice, spin_state, agent_action_index)
+    final_weights = runner.agent.policy_network.get_weights()
 
-    assert next_res != initial_res
-    # assert tf.math.not_equal(next_res, initial_res)
+    assert any([
+        any(tf.reshape(tf.math.not_equal(w0, w1), shape=(-1,)))
+        for w0, w1 in zip(initial_weights, final_weights)
+    ])
 
-
-def test():
-    lattice = KagomeLattice(n_sq_cells=2).lattice
-    environment = SpinEnvironment(lattice)
-    agent = RLAgent(lattice)
-
-    runner = Runner(environment, agent)
-
-    # runner.batched_graphs_for_training = _create_batched_graphs(
-    #     runner.agent.graph, n_batch=2
-    # )
-    # runner._training_step(n_transitions=2)
-
-    runner.batched_graphs_for_evaluation = _create_batched_graphs(
-        runner.agent.graph, n_batch=100
-    )
-    expected_r1 = runner._evaluate(evaluate_for_n_transitions=100)
-
-    expected_r2 = runner._evaluate(evaluate_for_n_transitions=100)
-
-    expected_r2
+#
+# def test():
+#     lattice = KagomeLattice(n_sq_cells=2).lattice
+#     environment = SpinEnvironment(lattice)
+#     agent = RLAgent(lattice)
+#
+#     runner = Runner(environment, agent)
+#
+#     # runner.batched_graphs_for_training = _create_batched_graphs(
+#     #     runner.agent.graph, n_batch=2
+#     # )
+#     # runner._training_step(n_transitions=2)
+#
+#     runner.batched_graphs_for_evaluation = _create_batched_graphs(
+#         runner.agent.graph, n_batch=100
+#     )
+#     expected_r1 = runner._evaluate(evaluate_for_n_transitions=100)
+#
+#     expected_r2 = runner._evaluate(evaluate_for_n_transitions=100)
+#
+#     expected_r2
