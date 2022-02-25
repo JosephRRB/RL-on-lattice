@@ -6,8 +6,8 @@ from core.agent import (
     RLAgent,
     # _encode_action,
     # _calculate_action_log_probas_from_logits,
-    _create_batched_graphs,
 )
+from core.runner import _create_batched_graphs
 from core.environment import SpinEnvironment
 from core.lattice import KagomeLattice
 
@@ -39,12 +39,7 @@ def test_rl_agent_has_correct_action_space():
 
 def test_rl_agent_policy_weights_have_correct_dtype():
     lattice = KagomeLattice(n_sq_cells=2).lattice
-    environment = SpinEnvironment(lattice)
-    observation = environment.reset()
-
     agent = RLAgent(lattice)
-    # Weights are initialized after call
-    _ = agent.act(observation)
 
     assert all(
         [weight.dtype == tf.float32 for weight in agent.policy_network.weights]

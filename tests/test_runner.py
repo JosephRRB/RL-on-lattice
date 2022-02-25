@@ -1,9 +1,9 @@
 import tensorflow as tf
 
-from core.agent import RLAgent, _create_batched_graphs
+from core.agent import RLAgent
 from core.environment import SpinEnvironment
 from core.lattice import KagomeLattice
-from core.runner import Runner
+from core.runner import Runner, _create_batched_graphs
 
 
 def test_runner_gives_correct_state_transitions():
@@ -56,6 +56,33 @@ def test_actions_from_runner_are_consistent_with_environment_transitions():
     tf.debugging.assert_equal(r2, expected_r2)
 
 
+def test_run_trajectory_does_not_change_weights_of_policy_network():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    runner = Runner(SpinEnvironment(lattice), RLAgent(lattice))
+
+    initial_weights = runner.agent.policy_network.trainable_weights
+    _ = runner.run_trajectory(n_transitions=2)
+    final_weights = runner.agent.policy_network.trainable_weights
+
+    for w0, w1 in zip(initial_weights, final_weights):
+        tf.debugging.assert_equal(w0, w1)
+
+
+def test_train_step_updates_weights_of_policy_network():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    runner = Runner(SpinEnvironment(lattice), RLAgent(lattice))
+
+    initial_weights = runner.agent.policy_network.trainable_weights
+
+    n_transitions_per_training_step = 2
+    runner.batched_graphs_for_training = _create_batched_graphs(
+        runner.agent.graph, n_batch=n_transitions_per_training_step
+    )
+    runner._training_step(n_transitions=n_transitions_per_training_step)
+    final_weights = runner.agent.policy_network.trainable_weights
+
+    for w0, w1 in zip(initial_weights, final_weights):
+        assert any(tf.math.not_equal(w0, w1))
 
 def test():
     lattice = KagomeLattice(n_sq_cells=2).lattice
@@ -72,4 +99,8 @@ def test():
     runner.batched_graphs_for_evaluation = _create_batched_graphs(
         runner.agent.graph, n_batch=100
     )
-    runner._evaluate(evaluate_for_n_transitions=100)
+    expected_r1 = runner._evaluate(evaluate_for_n_transitions=100)
+
+    expected_r2 = runner._evaluate(evaluate_for_n_transitions=100)
+
+    expected_r2

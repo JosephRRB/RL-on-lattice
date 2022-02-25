@@ -1,8 +1,7 @@
 import copy
 
+import dgl
 import tensorflow as tf
-
-from core.agent import _create_batched_graphs
 
 
 class Runner:
@@ -82,8 +81,7 @@ class Runner:
         return log_probas_for_loss, bidir_acceptance_log_probas
 
     def train(self, n_training_loops=2000, n_transitions_per_training_step=2,
-              evaluate_after_n_training_steps=100, evaluate_for_n_transitions=100):
-        # self.agent.create_batched_graphs(n_batch=n_transitions_per_training_step)
+              evaluate_after_n_training_steps=50, evaluate_for_n_transitions=100):
         self.batched_graphs_for_training = _create_batched_graphs(
             self.agent.graph, n_batch=n_transitions_per_training_step
         )
@@ -97,6 +95,9 @@ class Runner:
                 expected_reward = self._evaluate(evaluate_for_n_transitions=evaluate_for_n_transitions)
                 expected_rewards.append(expected_reward)
 
+        expected_rewards = tf.concat(expected_rewards, axis=0)
+        return expected_rewards
+
     def _evaluate(self, evaluate_for_n_transitions=100):
         "Batch graphs before running _evaluate"
         old_obs, actions, new_obs, rewards = self.run_trajectory(n_transitions=evaluate_for_n_transitions)
@@ -105,3 +106,8 @@ class Runner:
         )
         expected_reward = tf.reduce_mean(tf.math.exp(bidir_acc_log_probas)*rewards)
         return expected_reward
+
+
+def _create_batched_graphs(graph, n_batch=2):
+    batch_graphs = dgl.batch([graph] * n_batch)
+    return batch_graphs

@@ -1,6 +1,3 @@
-import copy
-
-import dgl
 import tensorflow as tf
 from core.policy_network import GraphPolicyNetwork
 from tensorflow.keras.optimizers import Adam
@@ -12,21 +9,16 @@ class RLAgent:
         self.policy_network = GraphPolicyNetwork(
             n_node_features=1, n_hidden=n_hidden, n_classes=2
         )
-        self.optimizer = Adam(learning_rate=learning_rate)
+        self.optimizer = Adam(learning_rate=0.1)
         self.graph_n_nodes = self.graph.num_nodes()
-        # self.n_batch = None
-        # self.batch_graphs = None
 
     def act(self, observation):
         logits = self.policy_network(self.graph, observation)
         action_index = tf.random.categorical(logits, 1)
         return action_index
 
-    # def create_batched_graphs(self, n_batch=2):
-    #     self.n_batch = n_batch
-    #     self.batch_graphs = dgl.batch([self.graph] * self.n_batch)
-
     def calculate_log_probas_of_agent_actions(self, graphs, observations, action_indices):
+        "Receives batched graphs with corresponding observations and action_indices)"
         logits = self.policy_network(graphs, observations)
 
         log_proba = self._calculate_action_log_probas_from_logits(
@@ -230,11 +222,6 @@ class RLAgent:
 #             2 * tf.ones(shape=(n_graphs, 1), dtype=tf.float32)
 #         )
 #         return log_proba
-
-
-def _create_batched_graphs(graph, n_batch=2):
-    batch_graphs = dgl.batch([graph] * n_batch)
-    return batch_graphs
 
 
 # @tf.function(experimental_relax_shapes=True)
