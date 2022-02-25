@@ -13,13 +13,13 @@ def test_runner_gives_correct_state_transitions():
 
     runner = Runner(environment, agent, n_transitions=2)
 
-    first_state = runner.current_state
+    first_state = runner.environment.spin_state
     old_obs, _, new_obs, _ = runner.run_trajectory()
 
     old1, old2 = tf.split(old_obs, 2)
     new1, new2 = tf.split(new_obs, 2)
 
-    last_state = runner.current_state
+    last_state = runner.environment.spin_state
 
     tf.debugging.assert_equal(old1, first_state)
     tf.debugging.assert_equal(new1, old2)

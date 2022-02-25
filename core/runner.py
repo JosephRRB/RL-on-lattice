@@ -11,7 +11,7 @@ class Runner:
         self.agent = agent
 
         self.agent.create_batched_graphs(n_batch=self.n_transitions)
-        self.current_state = environment.reset()
+        self.environment.reset()
 
     def run_trajectory(self):
         old_obs = []
@@ -19,7 +19,7 @@ class Runner:
         new_obs = []
         rewards = []
 
-        observation = self.current_state
+        observation = self.environment.spin_state
         for _ in range(self.n_transitions):
             old_obs.append(observation)
             action_index = self.agent.act(observation)
@@ -28,8 +28,8 @@ class Runner:
             new_obs.append(observation)
             rewards.append(reward)
 
-        # Store last state
-        self.current_state = observation
+        # # Store last state
+        # self.current_state = observation
 
         old_obs = tf.concat(old_obs, axis=0)
         actions = tf.concat(actions, axis=0)
@@ -45,7 +45,7 @@ class Runner:
         new_log_probas = self.environment.calculate_log_probas_of_spin_states(new_obs)
         delta_log_probas = new_log_probas - old_log_probas
 
-        with tf.GradientTape() as tape:
+        with tf.GradientTape(persistent=True) as tape:
             forward_log_probas = self.agent.calculate_log_probas_of_agent_actions(old_obs, actions)
             # Same action would map back the state
             backward_log_probas = self.agent.calculate_log_probas_of_agent_actions(new_obs, actions)
@@ -53,8 +53,7 @@ class Runner:
             bidir_acceptance_log_probas = -tf.abs(
                 delta_log_probas + backward_log_probas - forward_log_probas
             ) / 2
-            log_probs = bidir_acceptance_log_probas + (
-                        forward_log_probas + backward_log_probas) / 2
+            log_probs = bidir_acceptance_log_probas + (forward_log_probas + backward_log_probas) / 2
             grad_weights_logits = tf.stop_gradient(
                 bidir_acceptance_log_probas + tf.math.log(rewards)
             )
@@ -68,6 +67,11 @@ class Runner:
 
         grads = tape.gradient(loss, self.agent.policy_network.trainable_weights)
         self.agent.optimizer.apply_gradients(zip(grads, self.agent.policy_network.trainable_weights))
+
+
+    # def train(self, n_training_loops=100):
+    #
+    #     for i in range(n_training_loops):
 
 
 

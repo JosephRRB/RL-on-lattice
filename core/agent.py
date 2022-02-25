@@ -217,12 +217,12 @@ class RLAgent:
 #         )
 #         return log_proba
 
-
+@tf.function(experimental_relax_shapes=True)
 def _encode_action(action_index):
     encoded_action = tf.one_hot(tf.reshape(action_index, shape=(-1,)), depth=2)
     return encoded_action
 
-
+@tf.function(experimental_relax_shapes=True)
 def _calculate_action_log_probas_from_logits(logits, action_indices, n_batch):
     log_probas = tf.nn.log_softmax(logits)
     encoded_action = _encode_action(action_indices)
