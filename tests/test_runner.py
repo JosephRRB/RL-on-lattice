@@ -1,4 +1,6 @@
 import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
 
 from core.agent import RLAgent
 from core.environment import SpinEnvironment
@@ -86,24 +88,41 @@ def test_train_step_updates_weights_of_policy_network():
         for w0, w1 in zip(initial_weights, final_weights)
     ])
 
-#
-# def test():
-#     lattice = KagomeLattice(n_sq_cells=2).lattice
-#     environment = SpinEnvironment(lattice)
-#     agent = RLAgent(lattice)
-#
-#     runner = Runner(environment, agent)
-#
-#     # runner.batched_graphs_for_training = _create_batched_graphs(
-#     #     runner.agent.graph, n_batch=2
-#     # )
-#     # runner._training_step(n_transitions=2)
-#
-#     runner.batched_graphs_for_evaluation = _create_batched_graphs(
-#         runner.agent.graph, n_batch=100
-#     )
-#     expected_r1 = runner._evaluate(evaluate_for_n_transitions=100)
-#
-#     expected_r2 = runner._evaluate(evaluate_for_n_transitions=100)
-#
-#     expected_r2
+
+def test_evaluate_does_not_change_policy_network_weights():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
+    agent = RLAgent(lattice)
+
+    runner = Runner(environment, agent)
+    evaluate_for_n_transitions = 100
+    runner.batched_graphs_for_evaluation = _create_batched_graphs(
+        runner.agent.graph, n_batch=evaluate_for_n_transitions
+    )
+
+    _ = runner._evaluate(evaluate_for_n_transitions=evaluate_for_n_transitions)
+    initial_weights = runner.agent.policy_network.get_weights()
+
+    _ = runner._evaluate(evaluate_for_n_transitions=evaluate_for_n_transitions)
+    final_weights = runner.agent.policy_network.get_weights()
+
+    for w0, w1 in zip(initial_weights, final_weights):
+        tf.debugging.assert_equal(w0, w1)
+
+
+def test_example():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
+    agent = RLAgent(lattice)
+
+    runner = Runner(environment, agent)
+
+    train_ave_rewards = runner.train(
+        n_training_loops=10000, n_transitions_per_training_step=2,
+        evaluate_after_n_training_steps=100, evaluate_for_n_transitions=50
+    )
+
+    np.savetxt("data/example_training_result.csv", train_ave_rewards.numpy(), delimiter=",")
+
+    plt.plot(train_ave_rewards)
+    plt.savefig("data/sample_training_plot.png")
