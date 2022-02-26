@@ -1,6 +1,6 @@
 from dgl.nn.tensorflow.conv import SAGEConv
 from tensorflow.keras import Model
-from tensorflow.keras.activations import relu
+from tensorflow.keras.activations import tanh
 
 
 class GraphPolicyNetwork(Model):
@@ -10,7 +10,7 @@ class GraphPolicyNetwork(Model):
                  n_classes):
         super().__init__()
         self.layer_1 = SAGEConv(n_node_features, n_hidden,
-                                aggregator_type='mean', activation=relu)
+                                aggregator_type='mean', activation=tanh)
         self.layer_1.fc_self.build(n_node_features)
         self.layer_1.fc_neigh.build(n_node_features)
         self.layer_2 = SAGEConv(n_hidden, n_classes,

@@ -112,8 +112,17 @@ def test_evaluate_does_not_change_policy_network_weights():
 
 def test_example():
     lattice = KagomeLattice(n_sq_cells=2).lattice
-    environment = SpinEnvironment(lattice)
-    agent = RLAgent(lattice)
+    environment = SpinEnvironment(
+        lattice,
+        inverse_temp=0.5,
+        spin_coupling=0.5,
+        external_B=0
+    )
+    agent = RLAgent(
+        lattice,
+        n_hidden=10,
+        learning_rate=0.0005
+    )
 
     runner = Runner(environment, agent)
 
