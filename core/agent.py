@@ -13,21 +13,36 @@ class RLAgent:
             n_node_features=1, n_hidden=n_hidden, n_classes=2
         )
         self.optimizer = Adam(learning_rate=learning_rate)
+        self.graph_n_nodes = self.graph.num_nodes()
 
     def act(self, observation):
         logits = self.policy_network(self.graph, observation)
         action_index = tf.random.categorical(logits, 1)
         return action_index
 
-    def _batch_predict_log_proba(self, observations, action_indices):
-        n_batch = int(observations.shape[0] / self.graph.num_nodes())
-        graphs = dgl.batch([self.graph] * n_batch)
+    def calculate_log_probas_of_agent_actions(self, graphs, observations, action_indices):
+        "Receives batched graphs with corresponding observations and action_indices)"
         logits = self.policy_network(graphs, observations)
 
-        log_proba = _batch_calculate_log_proba_of_actions(
-            logits, action_indices, n_batch
+        log_proba = self._calculate_action_log_probas_from_logits(
+            logits, action_indices
         )
         return log_proba
+
+    @tf.function(experimental_relax_shapes=True)
+    def _calculate_action_log_probas_from_logits(self, logits, action_indices):
+        log_probas = tf.nn.log_softmax(logits)
+        encoded_action = tf.one_hot(tf.reshape(action_indices, shape=(-1,)), depth=2)
+        action_index_log_probas = tf.reduce_sum(
+            tf.math.multiply(log_probas, encoded_action), axis=1
+        )
+        batched_log_probas = tf.reshape(
+            action_index_log_probas, shape=(-1, self.graph_n_nodes)
+        )
+        log_proba_of_actions = tf.reduce_sum(
+            batched_log_probas, axis=1, keepdims=True
+        )
+        return log_proba_of_actions
 
 
 #
@@ -212,22 +227,22 @@ class RLAgent:
 #         )
 #         return log_proba
 
-
-def _encode_action(action_index):
-    encoded_action = tf.one_hot(tf.reshape(action_index, shape=(-1,)), depth=2)
-    return encoded_action
-
-
-def _batch_calculate_log_proba_of_actions(logits, action_indices, n_batch):
-    log_probas = tf.nn.log_softmax(logits)
-    encoded_action = _encode_action(action_indices)
-    action_index_log_probas = tf.reduce_sum(
-        tf.math.multiply(log_probas, encoded_action), axis=1
-    )
-    batched_log_probas = tf.reshape(
-        action_index_log_probas, shape=(n_batch, -1)
-    )
-    log_proba_of_actions = tf.reduce_sum(
-        batched_log_probas, axis=1, keepdims=True
-    )
-    return log_proba_of_actions
+#
+# def _encode_action(action_index):
+#     encoded_action = tf.one_hot(tf.reshape(action_index, shape=(-1,)), depth=2)
+#     return encoded_action
+#
+#
+# def _batch_calculate_log_proba_of_actions(logits, action_indices, n_batch):
+#     log_probas = tf.nn.log_softmax(logits)
+#     encoded_action = _encode_action(action_indices)
+#     action_index_log_probas = tf.reduce_sum(
+#         tf.math.multiply(log_probas, encoded_action), axis=1
+#     )
+#     batched_log_probas = tf.reshape(
+#         action_index_log_probas, shape=(n_batch, -1)
+#     )
+#     log_proba_of_actions = tf.reduce_sum(
+#         batched_log_probas, axis=1, keepdims=True
+#     )
+#     return log_proba_of_actions
