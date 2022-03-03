@@ -83,10 +83,12 @@ def test_train_step_updates_weights_of_policy_network():
     runner._training_step(n_transitions=n_transitions_per_training_step)
     final_weights = runner.agent.policy_network.get_weights()
 
-    assert any([
-        any(tf.reshape(tf.math.not_equal(w0, w1), shape=(-1,)))
-        for w0, w1 in zip(initial_weights, final_weights)
-    ])
+    assert any(
+        [
+            any(tf.reshape(tf.math.not_equal(w0, w1), shape=(-1,)))
+            for w0, w1 in zip(initial_weights, final_weights)
+        ]
+    )
 
 
 def test_evaluate_does_not_change_policy_network_weights():
@@ -108,6 +110,8 @@ def test_evaluate_does_not_change_policy_network_weights():
 
     for w0, w1 in zip(initial_weights, final_weights):
         tf.debugging.assert_equal(w0, w1)
+
+
 #
 #
 # def test_example():
@@ -136,3 +140,78 @@ def test_evaluate_does_not_change_policy_network_weights():
 #     plt.plot(train_ave_rewards)
 #     plt.savefig("data/sample_training_plot_1.png")
 
+
+def test5():
+    from collections import Counter
+
+    n_expts = 100000
+    p = tf.constant([0.5, 0.35, 0.15], dtype=tf.float32)
+    logits = tf.concat(
+        [tf.reshape(tf.math.log(p), shape=(1, -1))] * n_expts, axis=0
+    )
+
+    # --------------
+
+    uniform = tf.random.uniform(shape=logits.shape, minval=0, maxval=1)
+    gumbel = -tf.math.log(-tf.math.log(uniform))
+    noisy_logits = tf.split(logits + gumbel, n_expts)
+
+    # n_nodes = 3
+    # pick_k = np.random.randint(low=1, high=n_nodes + 1, size=n_expts)
+    n_probs = np.array([0.3, 0.6, 0.1])
+    pick_k = np.random.choice([1, 2, 3], p=n_probs, size=n_expts)
+    selected_inds = []
+    for k, n in zip(pick_k, noisy_logits):
+        _, indices = tf.nn.top_k(n, k)
+        selected_inds.append(indices)
+    #     selected_inds.append(tf.RaggedTensor.from_tensor(indices))
+    # tf_selected_inds = tf.concat(selected_inds, axis=0)
+
+    # --------------
+
+    selected = [str(s.numpy()[0]) for s in selected_inds]
+    counts = Counter(selected)
+    n = sum(counts.values())
+    freq = {k: v / n for k, v in counts.items()}
+
+    # --------------
+    unique_indices = tf.ragged.constant(
+        [
+            [0],
+            [1],
+            [2],
+            [0, 1],
+            [0, 2],
+            [1, 0],
+            [1, 2],
+            [2, 0],
+            [2, 1],
+            [0, 1, 2],
+            [0, 2, 1],
+            [1, 0, 2],
+            [1, 2, 0],
+            [2, 0, 1],
+            [2, 1, 0],
+        ]
+    )
+    selected_p = tf.gather(params=p, indices=unique_indices)
+    renorm_probs = 1 - tf.map_fn(lambda x: tf.cumsum(x[:-1]), selected_p)
+    n_selected = unique_indices.row_lengths()
+    n_selected_probs = n_probs[n_selected.numpy() - 1].reshape((-1, 1))
+    prob_seq = (
+        tf.reduce_prod(selected_p, axis=1, keepdims=True)
+        / tf.reduce_prod(renorm_probs, axis=1, keepdims=True)
+        * n_selected_probs
+    )
+
+    # ------------------------------------------------
+
+    unique_indices = [str(i.numpy()) for i in unique_indices]
+    prob_seq = prob_seq.numpy().ravel()
+
+    expected = {k: v for k, v in zip(unique_indices, prob_seq)}
+
+    results = {ui: (freq[ui], expected[ui]) for ui in unique_indices}
+    tol = 1e-2
+    assert all([np.abs(f - e) < tol for f, e in results.values()])
+    print(results)

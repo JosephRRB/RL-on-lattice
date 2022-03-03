@@ -3,7 +3,7 @@ import copy
 import dgl
 import tensorflow as tf
 from core.policy_network import GraphPolicyNetwork
-from tensorflow.keras.optimizers import Adam
+# from tensorflow.keras.optimizers import Adam
 
 
 class RLAgent:
@@ -12,7 +12,7 @@ class RLAgent:
         self.policy_network = GraphPolicyNetwork(
             n_node_features=1, n_hidden=n_hidden, n_classes=2
         )
-        self.optimizer = Adam(learning_rate=learning_rate)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
         self.graph_n_nodes = self.graph.num_nodes()
 
     def act(self, observation):
