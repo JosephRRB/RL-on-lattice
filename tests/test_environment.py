@@ -56,12 +56,12 @@ def test_environment_correctly_flips_spins_based_on_agent_action():
     environment = SpinEnvironment(lattice)
     old_observation = environment.reset()
 
-    agent_action_index = tf.constant(
-        [[0], [1], [0], [1], [0], [1], [0], [1], [0], [1], [0], [1]],
-        dtype=tf.int64,
+    agent_selected_indices = tf.constant(
+        [[3, 5, 11, 1, 9, 7]],
+        dtype=tf.int32,
     )
 
-    new_observation, _ = environment.step(agent_action_index)
+    new_observation, _ = environment.step(agent_selected_indices)
 
     tf.debugging.assert_equal(new_observation[::2, 0], old_observation[::2, 0])
     tf.debugging.assert_equal(
@@ -74,20 +74,20 @@ def test_environment_correctly_tracks_lattice_spins_after_steps():
     environment = SpinEnvironment(lattice)
     _ = environment.reset()
 
-    agent_action_index = tf.constant(
-        [[0], [1], [0], [1], [0], [1], [0], [1], [0], [1], [0], [1]],
-        dtype=tf.int64,
+    agent_selected_indices = tf.constant(
+        [[3, 5, 11, 1, 9, 7]],
+        dtype=tf.int32,
     )
 
-    new_observation, _ = environment.step(agent_action_index)
+    new_observation, _ = environment.step(agent_selected_indices)
     tf.debugging.assert_equal(environment.spin_state, new_observation)
 
-    agent_action_index2 = tf.constant(
-        [[0], [0], [0], [0], [0], [0], [1], [1], [1], [1], [1], [1]],
-        dtype=tf.int64,
+    agent_selected_indices2 = tf.constant(
+        [[11, 10, 9, 8, 7, 6, 5]],
+        dtype=tf.int32,
     )
 
-    new_observation2, _ = environment.step(agent_action_index2)
+    new_observation2, _ = environment.step(agent_selected_indices2)
     assert any(tf.math.not_equal(new_observation, new_observation2))
     tf.debugging.assert_equal(environment.spin_state, new_observation2)
 
@@ -97,12 +97,12 @@ def test_environment_step_gives_correct_spin_dtypes():
     environment = SpinEnvironment(lattice)
     _ = environment.reset()
 
-    agent_action_index = tf.constant(
-        [[0], [1], [0], [1], [0], [1], [0], [1], [0], [1], [0], [1]],
-        dtype=tf.int64,
+    agent_selected_indices = tf.constant(
+        [[3, 5, 11, 1, 9, 7]],
+        dtype=tf.int32,
     )
 
-    new_observation, _ = environment.step(agent_action_index)
+    new_observation, _ = environment.step(agent_selected_indices)
     assert new_observation.dtype == tf.float32
 
 
@@ -266,13 +266,14 @@ def test_environment_reward_is_clipped_close_to_but_not_zero():
     environment = SpinEnvironment(lattice)
     _ = environment.reset()
 
-    agent_action_index = tf.constant(
-        [[0], [0], [0], [0], [0], [0], [0], [0], [0], [0], [0], [0]],
-        dtype=tf.int64,
+    # Select all indices
+    agent_selected_indices = tf.constant(
+        [[3, 5, 11, 1, 9, 7, 2, 8, 0, 6, 4, 10]],
+        dtype=tf.int32,
     )
 
     expected = tf.constant(0, dtype=tf.float32)
-    _, reward = environment.step(agent_action_index)
+    _, reward = environment.step(agent_selected_indices)
 
     tf.debugging.assert_near(reward, expected)
     tf.debugging.assert_none_equal(reward, expected)

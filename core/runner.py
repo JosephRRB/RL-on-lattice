@@ -1,5 +1,6 @@
-import dgl
 import tensorflow as tf
+
+from core.policy_network import _create_batched_graphs
 
 
 class Runner:
@@ -21,9 +22,9 @@ class Runner:
         observation = self.environment.spin_state
         for _ in range(n_transitions):
             old_obs.append(observation)
-            action_index = self.agent.act(observation)
-            actions.append(action_index)
-            observation, reward = self.environment.step(action_index)
+            selected_nodes = self.agent.act(observation)
+            actions.append(tf.RaggedTensor.from_tensor(selected_nodes))
+            observation, reward = self.environment.step(selected_nodes)
             new_obs.append(observation)
             rewards.append(reward)
 
@@ -101,6 +102,3 @@ class Runner:
         return ave_reward
 
 
-def _create_batched_graphs(graph, n_batch=2):
-    batch_graphs = dgl.batch([graph] * n_batch)
-    return batch_graphs

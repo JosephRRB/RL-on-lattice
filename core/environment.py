@@ -36,17 +36,18 @@ class SpinEnvironment:
         )
         return self.spin_state
 
-    def step(self, action_index):
+    def step(self, selected_nodes):
         """
-
-        action_index: Tensor of shape (N_nodes, 1)
-            that contains 1 (flip spin) and 0 (retain spin)
+        selected_nodes: node indices selected by agent
         """
         old_spins = self.spin_state
 
         # flip spins
-        action = tf.cast(1 - 2 * action_index, dtype=tf.float32)
-        new_spins = old_spins * action
+        encoded_selection = tf.transpose(
+            tf.reduce_sum(tf.one_hot(selected_nodes, self.n_nodes), axis=1)
+        )
+        flip_action = tf.cast(1 - 2 * encoded_selection, dtype=tf.float32)
+        new_spins = old_spins * flip_action
 
         # reward
         reward = _calculate_reward(old_spins, new_spins)

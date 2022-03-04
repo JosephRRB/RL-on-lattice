@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 from core.agent import RLAgent
 from core.environment import SpinEnvironment
 from core.lattice import KagomeLattice
-from core.runner import Runner, _create_batched_graphs
+from core.runner import Runner
+from core.policy_network import _create_batched_graphs
 
 
 def test_runner_gives_correct_state_transitions():
@@ -44,7 +45,7 @@ def test_actions_from_runner_are_consistent_with_environment_transitions():
 
     # -----------------------------------------------------------------------------------------------------------------
     environment.spin_state = old1
-    expected_new1, expected_r1 = environment.step(act1)
+    expected_new1, expected_r1 = environment.step(act1.to_tensor())
 
     tf.debugging.assert_equal(new1, expected_new1)
     tf.debugging.assert_equal(r1, expected_r1)
@@ -52,7 +53,7 @@ def test_actions_from_runner_are_consistent_with_environment_transitions():
     # -----------------------------------------------------------------------------------------------------------------
 
     environment.spin_state = old2
-    expected_new2, expected_r2 = environment.step(act2)
+    expected_new2, expected_r2 = environment.step(act2.to_tensor())
 
     tf.debugging.assert_equal(new2, expected_new2)
     tf.debugging.assert_equal(r2, expected_r2)
@@ -215,3 +216,75 @@ def test5():
     tol = 1e-2
     assert all([np.abs(f - e) < tol for f, e in results.values()])
     print(results)
+
+
+def test1():
+    params = tf.Variable([[2.0, 3.0], [1.0, 5.0]], dtype=tf.float32)
+    x = tf.constant([[2.0], [1.0]], dtype=tf.float32)
+    y = tf.constant([4.0, 2.0, 3.0, 1.0], dtype=tf.float32)
+
+    with tf.GradientTape() as tape:
+        u = tf.linalg.matmul(params, x)
+        v = tf.reshape(params, shape=(-1,))*y
+        w = tf.reduce_sum(u + tf.reduce_sum(v))
+    grad = tape.gradient(w, params)
+
+    expected_grad = tf.concat([tf.transpose(x), tf.transpose(x)], axis=0) + 2*tf.reshape(y, shape=(2, 2))
+
+    tf.debugging.assert_equal(grad, expected_grad)
+
+    res = tf.reduce_sum(expected_grad*params)
+
+    tf.debugging.assert_equal(w, res)
+    # param = [[a, b],
+    #          [c, d]]
+    # u = [[ax1 + bx2],
+    #      [cx1 + dx2]]
+    # v = [ay1, by2, cy3, dy4]
+    # w = ax1 + bx2 + cx1 + dx2 + 2(ay1 + by2 + cy3 + dy4)
+    #   = a(x1 + 2y1) + b(x2 + 2y2) + c(x1 + 2y3) + d(x2 + 2y4)
+
+
+def test2():
+    params = tf.Variable([[2.0, 3.0, 4.0],
+                          [1.0, 5.0, 3.0],
+                          [7.0, 6.0, 1.0]], dtype=tf.float32)
+    x = tf.ragged.constant([
+        [3.0, 2.0, 1.0],
+        [1.0],
+        [1.0, 4.0]
+    ])
+    z = tf.ragged.constant([
+        [2, 0, 1],
+        [1],
+        [0, 2]
+    ])
+    with tf.GradientTape() as tape:
+        u = tf.gather(params, z, axis=1, batch_dims=1)
+        v = tf.map_fn(lambda x: tf.cumsum(x[:-1]), u*x)
+        w = tf.reduce_sum(v)
+    grad = tape.gradient(w, params)
+
+    expected_grad = tf.constant([
+        [2.0, 0.0, 2*3.0],
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0]
+    ])
+    tf.debugging.assert_equal(grad, expected_grad)
+
+    # params = [[a, b, c],
+    #           [d, e, f],
+    #           [g, h, i]]
+    # x = [[x00, x01, x02],
+    #      [x10],
+    #      [x20, x21]]
+
+    # u = [[c, a, b],
+    #      [e],
+    #      [g, i]]
+    # v = [[x00*c, x00*c + x01*a],
+    #      [],
+    #      [x20*g]]
+    # w = a*x01 + c*2*x00 + g*x20
+
+
