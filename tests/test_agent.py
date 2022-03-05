@@ -278,7 +278,7 @@ def test_agent_log_probas_of_actions_have_correct_shape():
         dtype=tf.int32,
     )
     agent_selected_nodes_2 = tf.ragged.constant(
-        [[5, 4, 8, 1, 2, 9], [6]],
+        [[5, 4, 8, 1, 2, 9], [6, 5, 7]],
         dtype=tf.int32,
     )
 

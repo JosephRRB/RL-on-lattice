@@ -37,10 +37,15 @@ class Runner:
 
     def _training_step(self, n_transitions=2):
         "Batch graphs before running _training_step"
-        old_obs, actions, new_obs, rewards = self.run_trajectory(n_transitions=n_transitions)
+        old_obs, actions, new_obs, rewards = self.run_trajectory(
+            n_transitions=n_transitions
+        )
 
         with tf.GradientTape() as tape:
-            log_probas_for_loss, bidir_acceptance_log_probas = self._calculate_log_probas(
+            (
+                log_probas_for_loss,
+                bidir_acceptance_log_probas,
+            ) = self._calculate_log_probas(
                 self.batched_graphs_for_training, old_obs, actions, new_obs
             )
 
@@ -55,26 +60,50 @@ class Runner:
             # negative log prob -> gradient descent
             loss = tf.reduce_sum(-log_probas_for_loss * advantages)
 
-        grads = tape.gradient(loss, self.agent.policy_network.trainable_weights)
-        self.agent.optimizer.apply_gradients(zip(grads, self.agent.policy_network.trainable_weights))
+        grads = tape.gradient(
+            loss, self.agent.policy_network.trainable_weights
+        )
+        self.agent.optimizer.apply_gradients(
+            zip(grads, self.agent.policy_network.trainable_weights)
+        )
 
     def _calculate_log_probas(self, graphs, old_obs, actions, new_obs):
-        old_log_probas = self.environment.calculate_log_probas_of_spin_states(old_obs)
-        new_log_probas = self.environment.calculate_log_probas_of_spin_states(new_obs)
+        old_log_probas = self.environment.calculate_log_probas_of_spin_states(
+            old_obs
+        )
+        new_log_probas = self.environment.calculate_log_probas_of_spin_states(
+            new_obs
+        )
         delta_log_probas = new_log_probas - old_log_probas
 
-        forward_log_probas = self.agent.calculate_log_probas_of_agent_actions(graphs, old_obs, actions)
-        # Same action would map back the state
-        backward_log_probas = self.agent.calculate_log_probas_of_agent_actions(graphs, new_obs, actions)
+        forward_log_probas = self.agent.calculate_log_probas_of_agent_actions(
+            graphs, old_obs, actions
+        )
+        # Reversed action would map back the state
+        reversed_actions = actions[:, ::-1]
+        backward_log_probas = self.agent.calculate_log_probas_of_agent_actions(
+            graphs, new_obs, reversed_actions
+        )
 
-        bidir_acceptance_log_probas = -tf.abs(
-            delta_log_probas + backward_log_probas - forward_log_probas
-        ) / 2
-        log_probas_for_loss = bidir_acceptance_log_probas + (forward_log_probas + backward_log_probas) / 2
+        bidir_acceptance_log_probas = (
+            -tf.abs(
+                delta_log_probas + backward_log_probas - forward_log_probas
+            )
+            / 2
+        )
+        log_probas_for_loss = (
+            bidir_acceptance_log_probas
+            + (forward_log_probas + backward_log_probas) / 2
+        )
         return log_probas_for_loss, bidir_acceptance_log_probas
 
-    def train(self, n_training_loops=2000, n_transitions_per_training_step=2,
-              evaluate_after_n_training_steps=50, evaluate_for_n_transitions=100):
+    def train(
+        self,
+        n_training_loops=2000,
+        n_transitions_per_training_step=2,
+        evaluate_after_n_training_steps=50,
+        evaluate_for_n_transitions=100,
+    ):
         self.batched_graphs_for_training = _create_batched_graphs(
             self.agent.graph, n_batch=n_transitions_per_training_step
         )
@@ -86,7 +115,9 @@ class Runner:
             self._training_step(n_transitions=n_transitions_per_training_step)
             if i % evaluate_after_n_training_steps == 0:
                 # print(f"Training step #: {i+1}")
-                ave_reward = self._evaluate(evaluate_for_n_transitions=evaluate_for_n_transitions)
+                ave_reward = self._evaluate(
+                    evaluate_for_n_transitions=evaluate_for_n_transitions
+                )
                 train_ave_rewards.append(ave_reward)
 
         train_ave_rewards = tf.concat(train_ave_rewards, axis=0)
@@ -94,11 +125,13 @@ class Runner:
 
     def _evaluate(self, evaluate_for_n_transitions=100):
         "Batch graphs before running _evaluate"
-        old_obs, actions, new_obs, rewards = self.run_trajectory(n_transitions=evaluate_for_n_transitions)
+        old_obs, actions, new_obs, rewards = self.run_trajectory(
+            n_transitions=evaluate_for_n_transitions
+        )
         _, bidir_acc_log_probas = self._calculate_log_probas(
             self.batched_graphs_for_evaluation, old_obs, actions, new_obs
         )
-        ave_reward = tf.reduce_mean(tf.math.exp(bidir_acc_log_probas)*rewards)
+        ave_reward = tf.reduce_mean(
+            tf.math.exp(bidir_acc_log_probas) * rewards
+        )
         return ave_reward
-
-

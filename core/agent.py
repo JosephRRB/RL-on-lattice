@@ -33,7 +33,7 @@ class RLAgent:
     def calculate_log_probas_of_agent_actions(
         self, graphs, observations, selected_nodes
     ):
-        "Receives batched graphs with corresponding observations and selected_nodes)"
+        "Receives batched graphs with corresponding observations and selected_nodes"
         node_logits, n_nodes_logits = self.policy_network(graphs, observations)
 
         log_proba = _calculate_action_log_probas_from_logits(
@@ -273,8 +273,8 @@ def _calculate_action_log_probas_from_logits(
     selected_lp = tf.gather(
         params=node_lp, indices=selected_nodes, axis=1, batch_dims=1
     )
-    selected_p = tf.math.exp(selected_lp)
-    renorm_p = 1 - tf.map_fn(lambda x: tf.cumsum(x[:-1]), selected_p)
+    selected_p_renorm = tf.math.exp(selected_lp[:, :-1])
+    renorm_p = 1 - tf.map_fn(tf.cumsum, selected_p_renorm)
     clipped = tf.clip_by_value(
         renorm_p, clip_value_min=2e-7, clip_value_max=1
     )
