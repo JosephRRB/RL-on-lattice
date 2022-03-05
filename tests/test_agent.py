@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 from core.agent import (
     RLAgent,
+    _calculate_action_log_probas_from_logits,
 )
 from core.environment import SpinEnvironment
 from core.lattice import KagomeLattice
@@ -80,6 +81,22 @@ def test_rl_agent_acts_by_selecting_node_indices():
     tf.debugging.assert_less(selected_nodes, lattice.num_nodes())
 
 
+def test_reversed_agent_action_maps_state_back():
+    lattice = KagomeLattice(n_sq_cells=2).lattice
+    environment = SpinEnvironment(lattice)
+    observation_0 = environment.reset()
+
+    agent = RLAgent(lattice)
+    selected_nodes = agent.act(observation_0)
+    observation_1, _ = environment.step(selected_nodes)
+    assert any(tf.math.not_equal(environment.spin_state, observation_0))
+
+    # Reversed selected nodes maps observation_1 back to observation_0
+    reversed_selected_nodes = selected_nodes[:, ::-1]
+    observation_2, _ = environment.step(reversed_selected_nodes)
+
+    tf.debugging.assert_equal(observation_2, observation_0)
+
 # def test_rl_agent_policy_is_on_gpu():
 #     lattice = KagomeLattice(n_sq_cells=2).lattice
 #     environment = SpinEnvironment(lattice)
@@ -136,111 +153,15 @@ def test_batched_graphs_has_same_adjacency_as_original():
     )
 
 
-#
-# def test_agent_actions_are_properly_encoded():
-#     agent_action_index = tf.constant(
-#         [[0], [1], [0], [1], [0], [1], [0], [1], [0], [1], [0], [1]],
-#         dtype=tf.int64,
-#     )
-#     encoded_action = _encode_action(agent_action_index)
-#     expected = tf.constant(
-#         [
-#             [1, 0],
-#             [0, 1],
-#             [1, 0],
-#             [0, 1],
-#             [1, 0],
-#             [0, 1],
-#             [1, 0],
-#             [0, 1],
-#             [1, 0],
-#             [0, 1],
-#             [1, 0],
-#             [0, 1],
-#         ],
-#         dtype=tf.float32,
-#     )
-#
-#     tf.debugging.assert_equal(encoded_action, expected)
-
-
-def test_calculate_correct_log_probas_for_agent_selecting_only_one_node():
-    lattice = KagomeLattice(n_sq_cells=2).lattice
-    agent = RLAgent(lattice)
-
-    agent_selected_nodes = tf.ragged.constant(
-        [[0], [11]],
-        dtype=tf.int32,
-    )
-    # Selecting nodes #0 for the first batch and #11 for the second batch is
-    # most likely
-    node_logits = tf.constant(
-        [[-0.1] + [-100.0] * 11, [-100.0] * 11 + [-0.1]],
-        dtype=tf.float32,
-    )
-    # Selecting more than 1 node is very unlikely
-    n_nodes_logits = tf.constant(
-        [[-0.1] + [-100.0] * 11, [-0.1] + [-100.0] * 11],
-        dtype=tf.float32,
-    )
-    log_probas_of_actions = agent._calculate_action_log_probas_from_logits(
-        node_logits, n_nodes_logits, agent_selected_nodes
-    )
-
-    expected_log_probas = tf.constant([[0.0], [0.0]], dtype=tf.float32)
-    tf.debugging.assert_near(log_probas_of_actions, expected_log_probas)
-
-
 def test_calculate_correct_log_probas_for_agent_actions():
-    lattice = KagomeLattice(n_sq_cells=2).lattice
-    agent = RLAgent(lattice)
-
     agent_selected_nodes = tf.ragged.constant(
-        [[4, 7], [6]],
+        [[4, 1, 9], [6]],
         dtype=tf.int32,
     )
-    node_logits = tf.constant(
-        [
-            [
-                0.2,
-                0.1,
-                0.0,
-                -0.1,
-                -0.2,
-                -0.3,
-                -0.4,
-                -0.5,
-                -0.6,
-                -0.7,
-                -0.8,
-                -0.9,
-            ],
-            [
-                0.2,
-                0.1,
-                0.0,
-                -0.1,
-                -0.2,
-                -0.3,
-                -0.4,
-                -0.5,
-                -0.6,
-                -0.7,
-                -0.8,
-                -0.9,
-            ],
-        ],
-        dtype=tf.float32,
-    )
-    n_nodes_logits = tf.constant(
-        [
-            [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1],
-            [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1],
-        ],
-        dtype=tf.float32,
-    )
+    node_logits = tf.random.uniform(shape=(2, 12))
+    n_nodes_logits = tf.random.uniform(shape=(2, 12))
 
-    log_probas_of_actions = agent._calculate_action_log_probas_from_logits(
+    log_probas_of_actions = _calculate_action_log_probas_from_logits(
         node_logits, n_nodes_logits, agent_selected_nodes
     ).numpy()
 
@@ -250,15 +171,95 @@ def test_calculate_correct_log_probas_for_agent_actions():
 
     expected_action1_lp = np.log(
         node_probas[0, 4]
-        * node_probas[0, 7]
+        * node_probas[0, 1]
         / (1 - node_probas[0, 4])
-        * n_nodes_probas[0, 1]
+        * node_probas[0, 9]
+        / (1 - node_probas[0, 4] - node_probas[0, 1])
+        * n_nodes_probas[0, 2]
     )
     expected_action2_lp = np.log(node_probas[1, 6] * n_nodes_probas[1, 0])
 
     tol = 1e-3
     assert np.abs(log_probas_of_actions[0, 0] - expected_action1_lp) < tol
     assert np.abs(log_probas_of_actions[1, 0] - expected_action2_lp) < tol
+
+
+def test_calculated_log_proba_remains_finite():
+    agent_selected_nodes = tf.ragged.constant(
+        [[0, 9, 7]],
+        dtype=tf.int32,
+    )
+    # First chosen node is highly likely, while others are equally very unlikely
+    # eps = 1.7e-7
+    # eps = 1.64e-7
+    eps = 1.63e-7
+    # eps = 1.6e-7
+    node_probs = tf.constant([[1.0 - eps] + [eps / 11] * 11], dtype=tf.float32)
+    node_logits = tf.math.log(node_probs)
+    # # 3 nodes are very likely to be chosen
+    # n_node_probs = tf.constant([
+    #     [eps / 11, eps / 11, 1.0 - eps] + [eps / 11] * 9
+    # ])
+    # n_nodes_logits = tf.math.log(n_node_probs)
+    n_nodes_logits = tf.random.uniform(shape=(1, 12))
+    log_probas_of_actions = _calculate_action_log_probas_from_logits(
+        node_logits, n_nodes_logits, agent_selected_nodes
+    )
+    assert tf.math.is_finite(log_probas_of_actions)
+
+    # expected_p = tf.constant([[
+    #     (1 - eps)*(1/11)*(1/10)
+    # ]])
+    # expected_lp = tf.math.log(expected_p)
+
+
+def test_calculate_correct_log_probas_for_agent_selecting_only_one_node():
+    agent_selected_nodes = tf.ragged.constant(
+        [[0], [11], [6]],
+        dtype=tf.int32,
+    )
+    node_logits = tf.random.uniform(shape=(3, 12))
+    # Selecting only one node is most likely
+    n_nodes_logits = tf.constant(
+        [
+            [10.0] + [-10.0] * 11,
+            [10.0] + [-10.0] * 11,
+            [10.0] + [-10.0] * 11,
+        ]
+    )
+    log_probas_of_actions = _calculate_action_log_probas_from_logits(
+        node_logits, n_nodes_logits, agent_selected_nodes
+    )
+
+    normed_logits = tf.nn.log_softmax(node_logits)
+    expected_lp = tf.gather(
+        normed_logits, agent_selected_nodes, axis=1, batch_dims=1
+    ).to_tensor()
+
+    tf.debugging.assert_equal(log_probas_of_actions, expected_lp)
+
+
+def test_selecting_last_node_does_not_change_probability():
+    agent_selected_nodes = tf.ragged.constant(
+        [
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        ],
+        dtype=tf.int32,
+    )
+    node_logits = tf.random.uniform(shape=(1, 12))
+    node_logits = tf.concat([node_logits, node_logits], axis=0)
+
+    # Selecting N number of nodes are equally likely
+    n_nodes_logits = tf.constant([[0.0] * 12, [0.0] * 12])
+
+    log_probas_of_actions = _calculate_action_log_probas_from_logits(
+        node_logits, n_nodes_logits, agent_selected_nodes
+    )
+
+    tf.debugging.assert_equal(
+        log_probas_of_actions[0, :], log_probas_of_actions[1, :]
+    )
 
 
 def test_agent_log_probas_of_actions_have_correct_shape():
@@ -269,51 +270,25 @@ def test_agent_log_probas_of_actions_have_correct_shape():
         [[1], [1], [1], [-1], [1], [-1], [-1], [-1], [-1], [-1], [1], [-1]],
         dtype=tf.float32,
     )
-    agent_action_index = tf.constant(
-        [
-            [0],
-            [1],
-            [0],
-            [1],
-            [0],
-            [1],
-            [0],
-            [1],
-            [0],
-            [1],
-            [0],
-            [1],
-        ],
-        dtype=tf.int64,
-    )
     batched_graphs = _create_batched_graphs(agent.graph, n_batch=2)
     batched_obs = tf.concat([spin_state, spin_state], axis=0)
-    batched_action_indices = tf.concat(
-        [agent_action_index, agent_action_index], axis=0
+
+    agent_selected_nodes_1 = tf.ragged.constant(
+        [[4, 1, 9, 7, 3]],
+        dtype=tf.int32,
+    )
+    agent_selected_nodes_2 = tf.ragged.constant(
+        [[5, 4, 8, 1, 2, 9], [6]],
+        dtype=tf.int32,
     )
 
     log_proba = agent.calculate_log_probas_of_agent_actions(
-        agent.graph, spin_state, agent_action_index
+        agent.graph, spin_state, agent_selected_nodes_1
     )
     batch_log_probas = agent.calculate_log_probas_of_agent_actions(
-        batched_graphs, batched_obs, batched_action_indices
+        batched_graphs, batched_obs, agent_selected_nodes_2
     )
 
     assert log_proba.shape == (1, 1)
     assert batch_log_probas.shape == (2, 1)
 
-
-def test_same_agent_action_maps_state_back():
-    lattice = KagomeLattice(n_sq_cells=2).lattice
-    environment = SpinEnvironment(lattice)
-    observation_0 = environment.reset()
-
-    agent = RLAgent(lattice)
-    agent_action_index = agent.act(observation_0)
-    observation_1, _ = environment.step(agent_action_index)
-    assert any(tf.math.not_equal(environment.spin_state, observation_0))
-
-    # Same action maps observation_1 back to observation_0
-    observation_2, _ = environment.step(agent_action_index)
-
-    tf.debugging.assert_equal(observation_2, observation_0)

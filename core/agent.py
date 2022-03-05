@@ -36,52 +36,12 @@ class RLAgent:
         "Receives batched graphs with corresponding observations and selected_nodes)"
         node_logits, n_nodes_logits = self.policy_network(graphs, observations)
 
-        log_proba = self._calculate_action_log_probas_from_logits(
+        log_proba = _calculate_action_log_probas_from_logits(
             node_logits, n_nodes_logits, selected_nodes
         )
         return log_proba
 
-    # @tf.function(experimental_relax_shapes=True)
-    def _calculate_action_log_probas_from_logits(
-        self, node_logits, n_nodes_logits, selected_nodes
-    ):
-        n_nodes = tf.reshape(selected_nodes.row_lengths(), shape=(-1, 1))
-        # encoded_n_nodes = tf.one_hot(n_nodes - 1, self.graph_n_nodes)
-        n_nodes_lp = tf.nn.log_softmax(n_nodes_logits)
-        selected_n_lp = tf.gather(
-            params=n_nodes_lp, indices=n_nodes-1, axis=1, batch_dims=1
-        )
 
-        node_probas = tf.nn.softmax(node_logits)
-        selected_probas = tf.gather(
-            params=node_probas, indices=selected_nodes, axis=1, batch_dims=1
-        )
-        renorm_probs = 1 - tf.map_fn(lambda x: tf.cumsum(x[:-1]), selected_probas)
-
-        selected_nodes_lp = tf.math.reduce_sum(
-            tf.math.log(selected_probas), axis=1, keepdims=True
-        )
-        renorm_lp = tf.math.reduce_sum(
-            tf.math.log(renorm_probs), axis=1, keepdims=True
-        )
-
-        action_log_probas = selected_nodes_lp - renorm_lp + selected_n_lp
-        # selected_n_nodes_log_probas = tf.reduce_sum(
-        #     encoded_n_nodes * n_nodes_log_proba, axis=1, keepdims=True
-        # )
-
-        # log_probas = tf.nn.log_softmax(logits)
-        # encoded_action = tf.one_hot(tf.reshape(action_indices, shape=(-1,)), depth=2)
-        # action_index_log_probas = tf.reduce_sum(
-        #     tf.math.multiply(log_probas, encoded_action), axis=1
-        # )
-        # batched_log_probas = tf.reshape(
-        #     action_index_log_probas, shape=(-1, self.graph_n_nodes)
-        # )
-        # log_proba_of_actions = tf.reduce_sum(
-        #     batched_log_probas, axis=1, keepdims=True
-        # )
-        return action_log_probas
 
 
 #
@@ -297,3 +257,32 @@ def _choose_without_replacement(node_logits, select_k):
     gumbel = -tf.math.log(-tf.math.log(uniform))
     _, node_indices = tf.nn.top_k(node_logits + gumbel, select_k)
     return node_indices
+
+# TODO: check how to use tf.function here
+# @tf.function(experimental_relax_shapes=True)
+def _calculate_action_log_probas_from_logits(
+    node_logits, n_nodes_logits, selected_nodes
+):
+    n_nodes = tf.reshape(selected_nodes.row_lengths(), shape=(-1, 1))
+    n_nodes_lp = tf.nn.log_softmax(n_nodes_logits)
+    selected_n_lp = tf.gather(
+        params=n_nodes_lp, indices=n_nodes - 1, axis=1, batch_dims=1
+    )
+
+    node_lp = tf.nn.log_softmax(node_logits)
+    selected_lp = tf.gather(
+        params=node_lp, indices=selected_nodes, axis=1, batch_dims=1
+    )
+    selected_p = tf.math.exp(selected_lp)
+    renorm_p = 1 - tf.map_fn(lambda x: tf.cumsum(x[:-1]), selected_p)
+    clipped = tf.clip_by_value(
+        renorm_p, clip_value_min=2e-7, clip_value_max=1
+    )
+    renorm_lp = tf.math.log(clipped)
+
+    action_log_probas = (
+        tf.reduce_sum(selected_lp, axis=1, keepdims=True)
+        - tf.reduce_sum(renorm_lp, axis=1, keepdims=True)
+        + selected_n_lp
+    )
+    return action_log_probas

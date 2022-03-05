@@ -43,6 +43,8 @@ class SpinEnvironment:
         old_spins = self.spin_state
 
         # flip spins
+        # TODO: check if using sparse tensor instead to encode action is more
+        #  efficient
         encoded_selection = tf.transpose(
             tf.reduce_sum(tf.one_hot(selected_nodes, self.n_nodes), axis=1)
         )
