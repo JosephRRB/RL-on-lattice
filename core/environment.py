@@ -26,7 +26,7 @@ class SpinEnvironment:
 
     def reset(self):
         random_ints = tf.random.uniform(
-            shape=(self.lattice.num_nodes(), 1),
+            shape=(self.n_nodes, 1),
             maxval=2,
             dtype=tf.int32,
         )
@@ -36,6 +36,7 @@ class SpinEnvironment:
         )
         return self.spin_state
 
+    # @tf.function
     def step(self, selected_nodes):
         """
         selected_nodes: node indices selected by agent
@@ -43,12 +44,12 @@ class SpinEnvironment:
         old_spins = self.spin_state
 
         # flip spins
-        # TODO: check if using sparse tensor instead to encode action is more
-        #  efficient
-        encoded_selection = tf.transpose(
-            tf.reduce_sum(tf.one_hot(selected_nodes, self.n_nodes), axis=1)
+        node_idxs = tf.transpose(selected_nodes)
+        ones = tf.ones_like(node_idxs, dtype=tf.float32)
+        encoded_selection = tf.scatter_nd(
+            node_idxs, ones, shape=(self.n_nodes, 1)
         )
-        flip_action = tf.cast(1 - 2 * encoded_selection, dtype=tf.float32)
+        flip_action = 1 - 2 * encoded_selection
         new_spins = old_spins * flip_action
 
         # reward
@@ -110,7 +111,8 @@ class SpinEnvironment:
 # Comparing clusterings by the variation of information
 # Marina Meil ̆a
 # May need to change reward function
-@tf.function(experimental_relax_shapes=True)
+# @tf.function(experimental_relax_shapes=True)
+@tf.function
 def _calculate_reward(old_spins, new_spins):
     old_feats = tf.reshape((old_spins + 1) / 2, shape=(-1,))
     new_feats = tf.reshape((new_spins + 1) / 2, shape=(-1,))
@@ -135,7 +137,8 @@ def _calculate_reward(old_spins, new_spins):
     return normalized_vi
 
 
-@tf.function(experimental_relax_shapes=True)
+# @tf.function(experimental_relax_shapes=True)
+@tf.function
 def _calculate_entropy(counts, total_counts):
     entropy = -tf.reduce_sum(
         tf.where(

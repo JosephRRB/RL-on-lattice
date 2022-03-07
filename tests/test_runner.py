@@ -122,20 +122,22 @@ def test_example():
 
     runner = Runner(environment, agent)
 
-    train_acc_rate = runner.train(
-        n_training_loops=10000,
-        n_transitions_per_training_step=2,
+    train_eval_results = runner.train(
+        n_training_loops=500,
+        n_transitions_per_training_step=5,
         evaluate_after_n_training_steps=100,
         evaluate_for_n_transitions=100,
     )
 
     np.savetxt(
         "data/example_training_result.csv",
-        train_acc_rate.numpy(),
+        train_eval_results.numpy(),
         delimiter=",",
     )
 
-    plt.plot(train_acc_rate)
+    plt.plot(train_eval_results[:, 0], label="Training Acceptance Rate")
+    plt.plot(train_eval_results[:, 1], label="Training Mean Reward")
+    plt.legend()
     plt.savefig("data/sample_training_plot.png")
 
 

@@ -257,7 +257,7 @@ def test_selecting_last_node_does_not_change_probability():
         node_logits, n_nodes_logits, agent_selected_nodes
     )
 
-    tf.debugging.assert_equal(
+    tf.debugging.assert_near(
         log_probas_of_actions[0, :], log_probas_of_actions[1, :]
     )
 

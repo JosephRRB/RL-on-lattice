@@ -69,9 +69,11 @@ class Runner:
 
             baseline = tf.reduce_mean(grad_weights, axis=0, keepdims=True)
             advantages = grad_weights - baseline
+            # advantages = tf.nn.softmax(grad_weights_logits, axis=0)
 
             # negative log prob -> gradient descent
-            loss = tf.reduce_sum(-log_probas_for_loss * advantages)
+            loss = tf.reduce_mean(-log_probas_for_loss * advantages)
+            # loss = tf.reduce_mean(log_probas_for_loss * advantages)
 
         grads = tape.gradient(
             loss, self.agent.policy_network.trainable_weights
@@ -112,18 +114,18 @@ class Runner:
         self.batched_graphs_for_evaluation = _create_batched_graphs(
             self.agent.graph, n_batch=evaluate_for_n_transitions
         )
-        train_acc_rate = []
+        train_eval_results = []
         for i in range(n_training_loops):
             self._training_step(n_transitions=n_transitions_per_training_step)
             if i % evaluate_after_n_training_steps == 0:
                 # print(f"Training step #: {i+1}")
-                acc_rate = self._evaluate(
+                eval_results = self._evaluate(
                     evaluate_for_n_transitions=evaluate_for_n_transitions
                 )
-                train_acc_rate.append(acc_rate)
+                train_eval_results.append(eval_results)
 
-        train_acc_rate = tf.concat(train_acc_rate, axis=0)
-        return train_acc_rate
+        train_eval_results = tf.concat(train_eval_results, axis=0)
+        return train_eval_results
 
     def _evaluate(self, evaluate_for_n_transitions=100):
         "Batch graphs before running _evaluate"
@@ -149,8 +151,17 @@ class Runner:
         )
         acceptance_rate = n_accepted / acceptance_prob.shape[0]
 
-        return acceptance_rate
-        # ave_reward = tf.reduce_mean(
-        #     tf.math.exp(bidir_acc_log_probas) * rewards
-        # )
-        # return ave_reward
+        bidir_acceptance_lp = (
+            -tf.abs(
+                delta_log_probas + backward_log_probas - forward_log_probas
+            )
+            / 2
+        )
+        ave_reward = tf.reduce_mean(
+            tf.math.exp(bidir_acceptance_lp) * rewards,
+            axis=0,
+            keepdims=True,
+        )
+
+        eval_results = tf.concat([acceptance_rate, ave_reward], axis=1)
+        return eval_results
