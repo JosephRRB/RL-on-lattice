@@ -21,7 +21,7 @@ class GraphPolicyNetwork(tf.keras.Model):
         self.layer_2.fc_self.build(n_hidden)
         self.layer_2.fc_neigh.build(n_hidden)
         self.layer_3 = tf.keras.layers.Dense(self.n_nodes)
-        self.layer_3.build(2 * self.n_nodes)
+        self.layer_3.build(self.n_nodes)
 
     def call(self, graphs, node_features):
         hidden1 = self.layer_1(graphs, node_features)
@@ -29,9 +29,7 @@ class GraphPolicyNetwork(tf.keras.Model):
         output1 = self.layer_2(graphs, hidden1)
         output1 = tf.reshape(output1, shape=(-1, self.n_nodes))
 
-        node_features_ = tf.reshape(node_features, shape=(-1, self.n_nodes))
-        hidden2 = tf.concat([output1, node_features_], axis=1)
-        hidden2 = tf.keras.activations.tanh(hidden2)
+        hidden2 = tf.keras.activations.tanh(output1)
         output2 = self.layer_3(hidden2)
         return output1, output2
 
