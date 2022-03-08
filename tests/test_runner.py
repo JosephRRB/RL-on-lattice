@@ -123,7 +123,7 @@ def test_example():
     runner = Runner(environment, agent)
 
     train_eval_results = runner.train(
-        n_training_loops=500,
+        n_training_loops=100000,
         n_transitions_per_training_step=5,
         evaluate_after_n_training_steps=100,
         evaluate_for_n_transitions=100,

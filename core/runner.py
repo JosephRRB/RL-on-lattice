@@ -64,16 +64,12 @@ class Runner:
                 bidir_acceptance_log_probas + tf.math.log(rewards)
             )
             grad_weights = tf.nn.softmax(grad_weights_logits, axis=0)
-            # # theoretical ave of grad_weights
-            # baseline = 1 / n_transitions
 
             baseline = tf.reduce_mean(grad_weights, axis=0, keepdims=True)
             advantages = grad_weights - baseline
-            # advantages = tf.nn.softmax(grad_weights_logits, axis=0)
 
             # negative log prob -> gradient descent
             loss = tf.reduce_mean(-log_probas_for_loss * advantages)
-            # loss = tf.reduce_mean(log_probas_for_loss * advantages)
 
         grads = tape.gradient(
             loss, self.agent.policy_network.trainable_weights
@@ -118,7 +114,6 @@ class Runner:
         for i in range(n_training_loops):
             self._training_step(n_transitions=n_transitions_per_training_step)
             if i % evaluate_after_n_training_steps == 0:
-                # print(f"Training step #: {i+1}")
                 eval_results = self._evaluate(
                     evaluate_for_n_transitions=evaluate_for_n_transitions
                 )
