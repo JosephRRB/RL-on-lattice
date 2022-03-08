@@ -1,10 +1,5 @@
-import copy
-
-import dgl
 import tensorflow as tf
 from core.policy_network import GraphPolicyNetwork
-
-# from tensorflow.keras.optimizers import Adam
 
 
 class RLAgent:
@@ -55,6 +50,7 @@ def _choose_without_replacement(node_logits, select_k):
     _, node_indices = tf.nn.top_k(node_logits + gumbel, select_k)
     return node_indices
 
+
 # TODO: check how to use tf.function here
 # @tf.function(experimental_relax_shapes=True)
 def _calculate_action_log_probas_from_logits(
@@ -72,9 +68,7 @@ def _calculate_action_log_probas_from_logits(
     )
     selected_p_renorm = tf.math.exp(selected_lp[:, :-1])
     renorm_p = 1 - tf.map_fn(tf.cumsum, selected_p_renorm)
-    clipped = tf.clip_by_value(
-        renorm_p, clip_value_min=2e-7, clip_value_max=1
-    )
+    clipped = tf.clip_by_value(renorm_p, clip_value_min=2e-7, clip_value_max=1)
     renorm_lp = tf.math.log(clipped)
 
     action_log_probas = (

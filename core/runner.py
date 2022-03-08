@@ -1,5 +1,4 @@
 import tensorflow as tf
-
 from core.policy_network import _create_batched_graphs
 
 

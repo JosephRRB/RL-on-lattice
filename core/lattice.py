@@ -48,5 +48,5 @@ def _create_lattice(edge_list, coord_to_int_map):
     graph = nx.Graph()
     graph.add_edges_from(edge_list)
     nx.relabel_nodes(graph, coord_to_int_map, copy=False)
-    lattice = dgl.from_networkx(graph)#.to("/device:GPU:0")
+    lattice = dgl.from_networkx(graph)  # .to("/device:GPU:0")
     return lattice

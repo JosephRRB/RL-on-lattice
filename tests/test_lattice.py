@@ -3,7 +3,7 @@ import numpy as np
 from core.lattice import (
     KagomeLattice,
     _create_coord_int_mappings,
-    _create_edge_list,
+    _create_edge_list
 )
 
 

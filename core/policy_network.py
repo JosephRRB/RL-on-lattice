@@ -1,9 +1,6 @@
 import dgl
-from dgl.nn.tensorflow.conv import SAGEConv
 import tensorflow as tf
-
-# from tensorflow.keras import Model
-# from tensorflow.keras.activations import tanh
+from dgl.nn.tensorflow.conv import SAGEConv
 
 
 class GraphPolicyNetwork(tf.keras.Model):
@@ -24,7 +21,7 @@ class GraphPolicyNetwork(tf.keras.Model):
         self.layer_2.fc_self.build(n_hidden)
         self.layer_2.fc_neigh.build(n_hidden)
         self.layer_3 = tf.keras.layers.Dense(self.n_nodes)
-        self.layer_3.build(2*self.n_nodes)
+        self.layer_3.build(2 * self.n_nodes)
 
     def call(self, graphs, node_features):
         hidden1 = self.layer_1(graphs, node_features)

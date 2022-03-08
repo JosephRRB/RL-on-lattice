@@ -309,20 +309,21 @@ def test_environment_calculates_correct_log_proba_of_spin_state():
     n_edges_with_same_spin = 14
     n_edges_with_opposite_spin = 10
     total_spin_interaction = (
-            n_edges_with_same_spin - n_edges_with_opposite_spin
+        n_edges_with_same_spin - n_edges_with_opposite_spin
     )
     total_spin = 7 - 5
     expected_log_probability1 = env.inverse_temp * (
-            env.spin_coupling * total_spin_interaction
-            + env.external_B * total_spin
+        env.spin_coupling * total_spin_interaction
+        + env.external_B * total_spin
     )
     expected_log_probability2 = env.inverse_temp * (
-            env.spin_coupling * total_spin_interaction
-            + env.external_B * (-total_spin)
+        env.spin_coupling * total_spin_interaction
+        + env.external_B * (-total_spin)
     )
     expected_log_probability = tf.constant(
         [[expected_log_probability1], [expected_log_probability2]],
-        dtype=tf.float32)
+        dtype=tf.float32,
+    )
     tf.debugging.assert_equal(log_probability, expected_log_probability)
 
 
@@ -448,6 +449,7 @@ def test_misaligning_spin_state_is_less_likely_if_ferromagnetic():
 
     assert env.spin_coupling > 0
     assert delta_log_proba < 0
+
 
 def test_aligning_spin_state_is_less_likely_if_antiferromagnetic():
     lattice = KagomeLattice(n_sq_cells=2).lattice

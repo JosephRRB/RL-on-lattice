@@ -1,14 +1,11 @@
-import dgl
 import numpy as np
 
+import dgl
 import tensorflow as tf
-from core.agent import (
-    RLAgent,
-    _calculate_action_log_probas_from_logits,
-)
+from core.agent import RLAgent, _calculate_action_log_probas_from_logits
 from core.environment import SpinEnvironment
 from core.lattice import KagomeLattice
-from core.policy_network import _create_batched_graphs, GraphPolicyNetwork
+from core.policy_network import GraphPolicyNetwork, _create_batched_graphs
 
 
 def test_policy_network_has_correct_output_shape():
@@ -96,6 +93,7 @@ def test_reversed_agent_action_maps_state_back():
     observation_2, _ = environment.step(reversed_selected_nodes)
 
     tf.debugging.assert_equal(observation_2, observation_0)
+
 
 # def test_rl_agent_policy_is_on_gpu():
 #     lattice = KagomeLattice(n_sq_cells=2).lattice
@@ -291,4 +289,3 @@ def test_agent_log_probas_of_actions_have_correct_shape():
 
     assert log_proba.shape == (1, 1)
     assert batch_log_probas.shape == (2, 1)
-

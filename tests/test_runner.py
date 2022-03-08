@@ -1,12 +1,12 @@
-import tensorflow as tf
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
+import tensorflow as tf
 from core.agent import RLAgent
 from core.environment import SpinEnvironment
 from core.lattice import KagomeLattice
-from core.runner import Runner
 from core.policy_network import _create_batched_graphs
+from core.runner import Runner
 
 
 def test_runner_gives_correct_state_transitions():
