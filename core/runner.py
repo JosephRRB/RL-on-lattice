@@ -3,7 +3,17 @@ from core.policy_network import _create_batched_graphs
 
 
 class Runner:
-    def __init__(self, environment, agent):
+    def __init__(
+        self,
+        environment,
+        agent,
+        prob_ratio_clip=0.2,
+        max_n_updates_per_training_step=5,
+        max_dist=0.01,
+    ):
+        self.prob_ratio_clip = prob_ratio_clip
+        self.max_n_updates_per_training_step = max_n_updates_per_training_step
+        self.max_dist = max_dist
         self.environment = environment
         self.agent = agent
 
@@ -39,36 +49,54 @@ class Runner:
         old_obs, actions, new_obs, rewards = self.run_trajectory(
             n_transitions=n_transitions
         )
+        lp_to_maximize_0, _, _, bidir_policy_lp_0 = self._calculate_log_probas(
+            self.batched_graphs_for_training, old_obs, actions, new_obs
+        )
+        for i in range(self.max_n_updates_per_training_step):
+            bidir_policy_lp = self._update_policy_weights(
+                old_obs, actions, new_obs, rewards, lp_to_maximize_0
+            )
+            ave_dist = tf.abs(
+                tf.reduce_mean(bidir_policy_lp_0 - bidir_policy_lp)
+            )
+            if ave_dist > self.max_dist:
+                # Early stopping
+                break
 
+    def _update_policy_weights(
+        self, old_obs, actions, new_obs, rewards, lp_to_maximize_0
+    ):
         with tf.GradientTape() as tape:
             (
-                delta_log_probas,
-                forward_log_probas,
-                backward_log_probas,
+                lp_to_maximize,
+                bidir_acceptance_lp,
+                _,
+                bidir_policy_lp,
             ) = self._calculate_log_probas(
                 self.batched_graphs_for_training, old_obs, actions, new_obs
             )
-            bidir_acceptance_log_probas = (
-                -tf.abs(
-                    delta_log_probas + backward_log_probas - forward_log_probas
-                )
-                / 2
-            )
-            log_probas_for_loss = (
-                bidir_acceptance_log_probas
-                + (forward_log_probas + backward_log_probas) / 2
+            prob_ratio = tf.math.exp(lp_to_maximize - lp_to_maximize_0)
+            clipped_prob_ratio = tf.clip_by_value(
+                prob_ratio,
+                clip_value_min=1 - self.prob_ratio_clip,
+                clip_value_max=1 + self.prob_ratio_clip,
             )
 
+            # Advantages
             grad_weights_logits = tf.stop_gradient(
-                bidir_acceptance_log_probas + tf.math.log(rewards)
+                bidir_acceptance_lp + tf.math.log(rewards)
             )
             grad_weights = tf.nn.softmax(grad_weights_logits, axis=0)
-
             baseline = tf.reduce_mean(grad_weights, axis=0, keepdims=True)
             advantages = grad_weights - baseline
 
+            weighted_prob_ratio = tf.math.minimum(
+                prob_ratio * advantages, clipped_prob_ratio * advantages
+            )
+
             # negative log prob -> gradient descent
-            loss = tf.reduce_mean(-log_probas_for_loss * advantages)
+            # loss = tf.reduce_mean(-lp_to_maximize * advantages)
+            loss = tf.reduce_mean(-weighted_prob_ratio)
 
         grads = tape.gradient(
             loss, self.agent.policy_network.trainable_weights
@@ -76,6 +104,7 @@ class Runner:
         self.agent.optimizer.apply_gradients(
             zip(grads, self.agent.policy_network.trainable_weights)
         )
+        return bidir_policy_lp
 
     def _calculate_log_probas(self, graphs, old_obs, actions, new_obs):
         old_log_probas = self.environment.calculate_log_probas_of_spin_states(
@@ -94,7 +123,16 @@ class Runner:
         backward_log_probas = self.agent.calculate_log_probas_of_agent_actions(
             graphs, new_obs, reversed_actions
         )
-        return delta_log_probas, forward_log_probas, backward_log_probas
+
+        state_action_delta_lp = (
+            delta_log_probas + backward_log_probas - forward_log_probas
+        )
+        fwd_accept_lp = tf.math.minimum(0, state_action_delta_lp)
+
+        bidir_accept_lp = -tf.abs(state_action_delta_lp) / 2
+        bidir_policy_lp = (forward_log_probas + backward_log_probas) / 2
+        lp_to_maximize = bidir_accept_lp + bidir_policy_lp
+        return lp_to_maximize, bidir_accept_lp, fwd_accept_lp, bidir_policy_lp
 
     def train(
         self,
@@ -126,15 +164,8 @@ class Runner:
         old_obs, actions, new_obs, rewards = self.run_trajectory(
             n_transitions=evaluate_for_n_transitions
         )
-        (
-            delta_log_probas,
-            forward_log_probas,
-            backward_log_probas,
-        ) = self._calculate_log_probas(
+        _, bidir_acceptance_lp, acceptance_lp, _ = self._calculate_log_probas(
             self.batched_graphs_for_evaluation, old_obs, actions, new_obs
-        )
-        acceptance_lp = tf.math.minimum(
-            0, delta_log_probas + backward_log_probas - forward_log_probas
         )
         acceptance_prob = tf.math.exp(acceptance_lp)
         rand = tf.random.uniform(shape=acceptance_prob.shape)
@@ -145,12 +176,6 @@ class Runner:
         )
         acceptance_rate = n_accepted / acceptance_prob.shape[0]
 
-        bidir_acceptance_lp = (
-            -tf.abs(
-                delta_log_probas + backward_log_probas - forward_log_probas
-            )
-            / 2
-        )
         ave_reward = tf.reduce_mean(
             tf.math.exp(bidir_acceptance_lp) * rewards,
             axis=0,

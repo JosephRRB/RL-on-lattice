@@ -120,10 +120,16 @@ def test_example():
     )
     agent = RLAgent(lattice, n_hidden=10, learning_rate=0.0001)
 
-    runner = Runner(environment, agent)
+    runner = Runner(
+        environment,
+        agent,
+        prob_ratio_clip=0.3,
+        max_n_updates_per_training_step=5,
+        max_dist=0.005,
+    )
 
     train_eval_results = runner.train(
-        n_training_loops=100000,
+        n_training_loops=10000,
         n_transitions_per_training_step=5,
         evaluate_after_n_training_steps=100,
         evaluate_for_n_transitions=100,
