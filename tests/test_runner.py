@@ -123,8 +123,8 @@ def test_example():
     runner = Runner(
         environment,
         agent,
-        prob_ratio_clip=0.3,
-        max_n_updates_per_training_step=5,
+        prob_ratio_clip=0.2,
+        max_n_updates_per_training_step=10,
         max_dist=0.005,
     )
 

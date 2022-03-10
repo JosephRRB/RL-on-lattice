@@ -51,8 +51,7 @@ def _choose_without_replacement(node_logits, select_k):
     return node_indices
 
 
-# TODO: check how to use tf.function here
-# @tf.function(experimental_relax_shapes=True)
+@tf.function(experimental_relax_shapes=True)
 def _calculate_action_log_probas_from_logits(
     node_logits, n_nodes_logits, selected_nodes
 ):
@@ -67,7 +66,7 @@ def _calculate_action_log_probas_from_logits(
         params=node_lp, indices=selected_nodes, axis=1, batch_dims=1
     )
     selected_p_renorm = tf.math.exp(selected_lp[:, :-1])
-    renorm_p = 1 - tf.map_fn(tf.cumsum, selected_p_renorm)
+    renorm_p = tf.map_fn(lambda x: 1 - tf.cumsum(x), selected_p_renorm)
     clipped = tf.clip_by_value(renorm_p, clip_value_min=2e-7, clip_value_max=1)
     renorm_lp = tf.math.log(clipped)
 

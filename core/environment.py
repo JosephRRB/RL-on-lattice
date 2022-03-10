@@ -131,8 +131,8 @@ def _calculate_reward(old_spins, new_spins):
     return normalized_vi
 
 
-# @tf.function(experimental_relax_shapes=True)
-@tf.function
+# @tf.function
+@tf.function(experimental_relax_shapes=True)
 def _calculate_entropy(counts, total_counts):
     entropy = -tf.reduce_sum(
         tf.where(
